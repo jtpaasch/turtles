@@ -1,7 +1,9 @@
 # Turtles
 
 > It's turtles all the way down. Er, all the way up, cuz datalog.
-> -- Someone probably said it
+> <i>- Someone probably said it</i>
+
+---
 
 This repo contains an encoding of some basic abstract interpretation
 in (Souffle) datalog. It's a work in progress.
@@ -19,7 +21,7 @@ To use the library to compute the concrete semantics of a program:
 
 * Create a file called `mything.dl`.
 * At the top of the file, `#include`
-  [library/library.dl](library/library.dl) file.
+  the [library/library.dl](library/library.dl) file.
 * Encode a C-like program (see the [examples/](examples/),
   or look at [library/syntax.dl](library/syntax.dl)).
 * Create a trace (see the [examples/](examples/),
