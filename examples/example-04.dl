@@ -1,0 +1,99 @@
+#include "../library/library.dl"
+
+// -----------------------------------------------
+// A program
+// -----------------------------------------------
+
+/*
+--  {                            // 1
+L2      while (x < 5) {          // 2
+L3          if (0 < y) {         // if: 3, compound: 4
+L4              x = x + 1;       // 5
+L5              y = y + (-1);    // 6
+--          } else {             // compound: 7
+L7              if (y == 0) {    // 8
+L8                  x = 5;       // 9
+--              } else {
+L10                 skip;        // 10
+---             }
+L12             z = 1;           // 11
+---         }
+---     }
+--- }
+
+*/
+
+
+// -----------------------------------------------
+// Encode it in datalog
+// -----------------------------------------------
+
+program("1").
+
+blockStmt("1","2").
+stmtList("empty","2").
+
+whileStmt("2","L2","200","3").
+binRelOpBexpr("200","<","201","202").
+varExpr("201","x").
+numExpr("202","5").
+
+ifStmt("3","L3","300","4","7").
+binRelOpBexpr("300","<","301","302").
+numExpr("301","0").
+varExpr("302","y").
+
+blockStmt("4","5").
+stmtList("empty","5").
+stmtList("5","6").
+
+valueStmt("5","L4","500").
+assignExpr("500","=","501","502").
+lhsVar("501","x").
+binArithOpExpr("502","+","50201","50202").
+varExpr("50201","x").
+numExpr("50202","1").
+
+valueStmt("6","L5","600").
+assignExpr("600","=","601","602").
+lhsVar("601","y").
+binArithOpExpr("602","+","60201","60202").
+varExpr("60201","y").
+numExpr("60202","-1").
+
+blockStmt("7","8").
+stmtList("empty","8").
+stmtList("8","11").
+
+ifStmt("8","L7","800","9","10").
+binRelOpBexpr("800","==","801","802").
+varExpr("801","y").
+numExpr("802","0").
+
+valueStmt("9","L8","900").
+assignExpr("900","=","901","902").
+lhsVar("901","x").
+numExpr("902","5").
+
+valueStmt("10","L10","1000").
+emptyExpr("10").
+
+valueStmt("11","L12","1100").
+assignExpr("1100","=","1101","1102").
+lhsVar("1101","z").
+numExpr("1102","1").
+
+
+// -----------------------------------------------
+// Compute some concrete traces
+// -----------------------------------------------
+
+createTrace(6,"L2").
+setTraceEnv(6,"x",5).
+
+createTrace(7,"L2").
+setTraceEnv(7,"x",3).
+setTraceEnv(7,"y",0).
+
+.output traceStep
+.output valueAt

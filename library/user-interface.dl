@@ -1,0 +1,29 @@
+
+// =========================================================
+// USER-DEFINED TRACES
+// =========================================================
+
+/* Users can create a trace by stipulating a trace ID, and
+ * saying which label it starts at. E.g., `createTrace(1,"L2")`
+ * says to create a trace with ID `1` that starts at label `L2`
+ * in the program at hand.
+ */
+.decl createTrace(tid:tid,start:lab)
+
+/* Users can (and should) set the initial environment for a trace,
+ * by setting each program variable to some starting value.
+ * For example:
+ *
+ *     createTrace(1,"L2").
+ *     setTraceEnv(1,"x",3).
+ *     setTraceEnv(1,"y",17).
+ *
+ * That creates a trace (with trace ID `1`) that starts at `L2` in the
+ * program at hand, with `x` set to 3 and `y` set to 17 at the start of
+ * the trace.
+ *
+ * Note: any program variables not given initial values will be
+ * initialized to zero.
+ */ 
+.decl setTraceEnv(tid:tid,var:var,val:val)
+

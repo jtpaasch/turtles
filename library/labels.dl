@@ -1,0 +1,133 @@
+
+// =========================================================
+// Computations about labels
+// =========================================================
+
+/* The predicate `labelOf(N,L)` says that `L` is the label of
+ * the statement that occurs at node `N`.
+ */
+.decl labelOf(node:nid,lab:lab)
+// .output labelOf
+
+labelOf(N,L) :- valueStmt(N,L,_).
+labelOf(N,L) :- ifStmt(N,L,_,_,_).
+labelOf(N,L) :- whileStmt(N,L,_,_).
+labelOf(N,L) :- blockStmt(N,N1),labelOf(N1,L).
+
+/* The predicate `blockList(N1,N2)` says that `N2` is a node in the
+ * block that begins at node `N1`.
+ */
+.decl blockList(node1:nid,node2:nid)
+// .output blockList
+
+blockList(N1,N2) :- blockStmt(N1,N2).
+blockList(N1,N2) :- blockList(N1,N2),stmtList("empty",N2).
+blockList(N1,N2) :- blockList(N1,N0),stmtList(N0,N2).
+
+/* The predicate `blockEnd(N1,N2)` says that `N2` is the last node
+ * in the block's list of statements.
+ */
+.decl blockEnd(node:nid,end:nid)
+// .output blockEnd
+
+blockEnd(N1,N2) :- blockList(N1,N2),!stmtList(N2,_).
+
+/* The predicate `entry(N,L)` says that label `L` is the program point
+ * that control passes to when the machine comes to execute node `N`.
+ * In other words, this is the label at the entry to node `N`.
+ */
+.decl entry(node:nid,lab:lab)
+// .output entry
+
+entry(N,L) :- valueStmt(N,L,_).
+entry(N,L) :- ifStmt(N,L,_,_,_).
+entry(N,L) :- whileStmt(N,L,_,_).
+entry(N,L) :- blockStmt(N,_),labelOf(N,L).
+
+/* The predicate `exit(N,L)` says that label `L` is the program point
+ * where control leaves from after the machine has executed node `N`.
+ */
+.decl exit(node:nid,lab:lab)
+// .output exit
+
+exit(N,L) :- valueStmt(N,L,_).
+exit(N,L) :- ifStmt(N,_,_,N1,_),exit(N1,L).
+exit(N,L) :- ifStmt(N,_,_,_,N2),exit(N2,L).
+exit(N,L) :- whileStmt(N,L,_,_).
+exit(N,L) :- blockStmt(N,_),blockEnd(N,N1),exit(N1,L).
+
+/* The predicate `controlFlow(L1,L2)` says that control can pass from
+ * program point `L1` to `L2`. It is essentially a flow-chart of the
+ * program. We can think of this predicate as being path-insensitive,
+ * i.e., it is indiscriminate with respect to true- or false-branches
+ * (it has edges for both branches).
+ */
+.decl controlFlow(src:lab,dst:lab)
+// .output controlFlow
+
+controlFlow(L1,L2) :- ifStmt(_,L1,_,N1,_),entry(N1,L2).
+controlFlow(L1,L2) :- ifStmt(_,L1,_,_,N2),entry(N2,L2).
+controlFlow(L1,L2) :- whileStmt(_,L1,_,N1),entry(N1,L2).
+controlFlow(L1,L2) :- whileStmt(_,L2,_,N1),exit(N1,L1).
+controlFlow(L1,L2) :-
+  stmtList(N1,N2),!isEmptyStmtList(N1),
+  exit(N1,L1),entry(N2,L2).
+
+/* The predicates `next(L1,L2)`,`nextTrue(L1,L2)`, and `nextFalse(L1,L2)`
+ * are the path-sensitive counterparts to `controlFlow(L1,L2)`. Using
+ * these predicates, one can piece together a path through the flow
+ * chart, going down one or the other true- or false-branch at each
+ * split in the flow-chart.
+ *
+ * Also, at any label that does not have a next label to pass control
+ * to, we add an edge to a synthetic label "done" to indicate that
+ * the program terminates (normally) there.
+ */
+.decl next(src:lab,dst:lab)
+// .output next
+
+.decl nextTrue(src:lab,dst:lab)
+// .output nextTrue
+
+.decl _nextFalse(src:lab,dst:lab)
+_nextFalse(L1,L2) :- whileStmt(_,L1,_,_),next(L1,L2).
+
+.decl nextFalse(src:lab,dst:lab)
+// .output nextFalse
+
+next(L1,L2) :- valueStmt(_,L1,_),controlFlow(L1,L2).
+next(L1,L2) :-
+  stmtList(N1,N2),exit(N1,L1),entry(N2,L2),controlFlow(L1,L2).
+next(L,"done") :- labelOf(_,L),!controlFlow(L,_). // Add "done"
+
+nextTrue(L1,L2) :- ifStmt(_,L1,_,N1,_),labelOf(N1,L2).
+nextTrue(L1,L2) :- whileStmt(_,L1,_,N),labelOf(N,L2).
+
+nextFalse(L1,L2) :- ifStmt(_,L1,_,_,N2),labelOf(N2,L2).
+nextFalse(L1,L2) :- whileStmt(_,L1,_,_),_nextFalse(L1,L2).
+nextFalse(L,"done") :- whileStmt(_,L,_,_),!_nextFalse(L,_).
+
+/* The `at(N,L)` predicate says that when control enters node `N`,
+ * control is passed to the label at `L`. In other words, this tells
+ * us which label control goes to on entry to `N`.
+ */
+.decl at(node:nid,lab:lab)
+// .output at
+
+at(N,L) :- entry(N,L).
+
+/* The `after(N,L)` predicate says that the label `L` is the label
+ * where the program that starts at `N` terminates (normally). In other
+ * words, this says which label control goes to after the machine
+ * finishes executing the program that starts at `N`.
+ */
+.decl after(node:nid,lab:lab)
+// .output after
+
+after(N,L) :- valueStmt(N,L0,_),next(L0,L).
+after(N,L) :-
+  ifStmt(N,_,_,N1,N2),after(N1,L),after(N2,L).
+after(N,L) :- whileStmt(_,L,_,N).
+after(N,L) :- whileStmt(N,L0,_,_),nextFalse(L0,L).
+after(N,L) :- blockStmt(N,_),blockEnd(N,N0),after(N0,L).
+after(N,L) :- stmtList(N,N0),!isEmptyStmtList(N),entry(N0,L).

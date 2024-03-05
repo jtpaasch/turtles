@@ -1,0 +1,22 @@
+
+// =========================================================
+// Types
+// =========================================================
+
+.type nid <: symbol // Node IDs (for AST nodes)
+.type lab <: symbol // Labels/program control points
+
+.type num <: symbol // Integer literal/constant
+.type var <: symbol // Variable
+
+.type bool <: symbol // "true" or "false"
+
+.type binArithOp <: symbol // Binary arithmetic operators, .e.g. "+"
+.type assignOp <: symbol // Assignment operators
+.type binRelOp <: symbol // Binary relational operators, e.g. "=="
+
+.type action <: symbol // "init", "go-T", "go-F", "assgn", "skip", etc.
+.type tid <: number // A trace ID
+.type stg <: number // The stage/index-number in a trace
+
+.type val <: number // Arithmetic values are integers

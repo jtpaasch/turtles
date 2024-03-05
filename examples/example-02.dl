@@ -1,0 +1,61 @@
+#include "../library/library.dl"
+
+// -----------------------------------------------
+// A program
+// -----------------------------------------------
+
+/*
+    {                 // block 1
+L2      if (x < 5) {  // if 2
+L3          y = 2;    // 3
+        } else {
+L5          skip;     // 4
+        }
+L7      y = y + 1;    // 5
+    }
+*/
+
+
+// -----------------------------------------------
+// Encode it in datalog
+// -----------------------------------------------
+
+program("1").
+
+blockStmt("1","2").
+stmtList("empty","2").
+stmtList("2","5").
+
+ifStmt("2","L2","200","3","4").
+binRelOpBexpr("200","<","2000","20000").
+varExpr("2000","x").
+numExpr("20000","5").
+
+valueStmt("3","L3","300").
+assignExpr("300","=","301","302").
+lhsVar("301","y").
+numExpr("302","2").
+
+valueStmt("4","L5","400").
+emptyExpr("400").
+
+valueStmt("5","L7","500").
+assignExpr("500","=","501","502").
+lhsVar("501","y").
+binArithOpExpr("502","+","50201","50202").
+varExpr("50201","y").
+numExpr("50202","1").
+
+
+// -----------------------------------------------
+// Compute some concrete traces
+// -----------------------------------------------
+
+createTrace(3,"L2").
+setTraceEnv(3,"x",3).
+
+createTrace(4,"L2").
+setTraceEnv(4,"x",7).
+
+.output traceStep
+.output valueAt

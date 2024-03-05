@@ -1,0 +1,56 @@
+#include "../library/library.dl"
+
+// -----------------------------------------------
+// A program
+// -----------------------------------------------
+
+/*
+-- {                    // 1
+L2     while (x < 3) {  // 2
+L3         x = x + 1;   // 3
+--     }
+L5     z = x;           // 4
+--  }
+*/
+
+
+// -----------------------------------------------
+// Encode it in datalog
+// -----------------------------------------------
+
+program("1").
+
+blockStmt("1","2").
+stmtList("empty","2").
+stmtList("2","4").
+
+whileStmt("2","L2","200","3").
+binRelOpBexpr("200","<","201","202").
+varExpr("201","x").
+numExpr("202","3").
+
+valueStmt("3","L3","300").
+assignExpr("300","=","301","302").
+lhsVar("301","x").
+binArithOpExpr("302","+","30201","30202").
+varExpr("30201","x").
+numExpr("30202","1").
+
+valueStmt("4","L5","400").
+assignExpr("400","=","401","402").
+lhsVar("401","z").
+varExpr("402","x").
+
+
+// -----------------------------------------------
+// Compute some concrete traces
+// -----------------------------------------------
+
+createTrace(4,"L2").
+setTraceEnv(4,"x",7).
+
+createTrace(5,"L2").
+setTraceEnv(5,"x",0).
+
+.output traceStep
+.output valueAt
