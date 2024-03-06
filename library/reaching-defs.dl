@@ -245,7 +245,6 @@ lastDefd(T,I,L2,V,D) :-
  *     ----------------------------------------- RD-init
  *               reachingDef(Ln)(x) = ?
  */
-
 reachingDef(L,V,"?") :-
   program(N), labelOf(N,L),progVar(V).
 
@@ -288,7 +287,6 @@ reachingDef(L2,V,D) :-
  *     ------------------------------------------------- RD-assgn
  *      reachingDef(L2)(x) = L1, reachingDef(L2)(y) = L
  */
-
 reachingDef(L2,V1,D),
 reachingDef(L2,V,L1) :-
   reachingDef(L1,V,_),isAssignment(L1),next(L1,L2),
@@ -335,7 +333,5 @@ reachingDef(L2,V,D) :-
  */
 reachingDef(L2,V,D) :-
   reachingDef(L1,V,D),isWhileStmt(L1),nextTrue(L1,L2).
-
 reachingDef(L2,V,D) :-
   reachingDef(L1,V,D),isWhileStmt(L1),nextFalse(L1,L2).
- 
