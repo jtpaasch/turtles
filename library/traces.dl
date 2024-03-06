@@ -139,9 +139,9 @@ falseBranchActionTag("go-F").
 
 /* The start of a trace at a label:
  * 
- *       T is a trace   T starts at [L1] 
- *     ---------------------------------- Trace-init
- *             T(0).- ~[init]~> L1
+ *       T is a trace   T starts at L1 
+ *     --------------------------------- Trace-init
+ *            T(0).- ~[init]~> L1
  *
  * In other words, if `T` is a trace that starts at label `L1`
  * (i.e., if the user has created the trace with `createTrace(T,L1)`),

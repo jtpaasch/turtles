@@ -29,3 +29,7 @@ To use the library to compute the concrete semantics of a program:
 * Specify what you want to `.output` (see the [examples/](examples/),
   or start with `.output traceStep` ond `.output valueAt`).
 * Run the program: `souffle -w -D- mything.dl`
+
+There is one abstract analysis here: reaching definitions. To run it
+on a program, add `.output reachingDef` in `mything.dl`. An example
+can be seen at [examples/example-03.dl](examples/example-03.dl).

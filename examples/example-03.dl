@@ -54,3 +54,4 @@ setTraceEnv(5,"x",0).
 
 .output traceStep
 .output valueAt
+.output reachingDef
