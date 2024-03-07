@@ -8,6 +8,7 @@
 
 .type num <: symbol // Integer literal/constant
 .type var <: symbol // Variable
+.type atom = var | num
 
 .type bool <: symbol // "true" or "false"
 

@@ -30,11 +30,11 @@ To use the library to compute the concrete semantics of a program:
   or start with `.output traceStep` ond `.output valueAt`).
 * Run the program: `souffle -w -D- mything.dl`
 
-There is one abstract analysis that is avaliable:
-[reaching definitions](library/reaching-defs.dl).
+Further analyses built on top of the concrete trace semantics:
 
-You can see its output if you run
-[examples/example-03.dl](examples/example-03.dl).
-
-To run it on your program, add `.output reachingDef` to `mything.dl`
-or any of the examples.
+* Reaching definitions. See it with `.output reachingDef` (or see
+  [examples/example-03.dl](examples/example-03.dl)])
+* General data flow, and data  flow for particular traces. See
+  it with `.output flow`, `.output traceFlow`, and
+  `.output traceFlowSummary` (or see
+  [examples/examples-02.dl](examples/examples-02.dl)).

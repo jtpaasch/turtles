@@ -285,10 +285,16 @@ isWhileStmt(L) :- whileStmt(_,L,_,_).
 
 .decl lhsVarOfAssignment(lab:lab,var:var)
 lhsVarOfAssignment(L,V) :-
-  valueStmt(_,L,E),isAssignment(L),
+  valueStmt(_,L,E),
   assignExpr(E,OP,LHS,_),
   assignEqualsOp(OP),
   lhsVar(LHS,V).
+
+.decl lhsVarNodeOfAssignment(lab:lab,node:nid)
+lhsVarNodeOfAssignment(L,LHS) :-
+  valueStmt(_,L,E),
+  assignExpr(E,OP,LHS,_),
+  assignEqualsOp(OP).
 
 .decl rhsExprOfAssignment(lab:lab,node:nid)
 rhsExprOfAssignment(L,RHS) :-
@@ -302,8 +308,40 @@ guardExprOfIfStmt(L,N) :- ifStmt(_,L,N,_,_).
 .decl guardExprOfWhileStmt(lab:lab,node:nid)
 guardExprOfWhileStmt(L,N) :- whileStmt(_,L,N,_).
 
+
 .decl progVar(var:var)
 // .output progVar
 
 progVar(V) :- varExpr(_,V).
 progVar(V) :- lhsVar(_,V).
+
+
+.decl inLabel(node:nid,label:lab)
+// .output inLabel
+
+inLabel(N,L) :- valueStmt(N,L,_).
+inLabel(N,L) :- valueStmt(_,L,N).
+
+inLabel(N,L) :- ifStmt(N,L,_,_,_).
+inLabel(N,L) :- ifStmt(_,L,N,_,_).
+
+inLabel(N,L) :- whileStmt(N,L,_,_).
+inLabel(N,L) :- whileStmt(_,L,N,_).
+
+inLabel(LHS,L) :- inLabel(E,L),assignExpr(E,_,LHS,_).
+inLabel(RHS,L) :- inLabel(E,L),assignExpr(E,_,_,RHS).
+
+inLabel(LHS,L) :- inLabel(E,L),binArithOpExpr(E,_,LHS,_).
+inLabel(RHS,L) :- inLabel(E,L),binArithOpExpr(E,_,_,RHS).
+
+inLabel(LHS,L) :- inLabel(E,L),binRelOpBexpr(E,_,LHS,_).
+inLabel(RHS,L) :- inLabel(E,L),binRelOpBexpr(E,_,_,RHS).
+
+
+.decl atomAt(node:nid,atom:atom)
+// .output atomAt
+
+atomAt(N,V) :- varExpr(N,V).
+atomAt(N,Z) :- numExpr(N,Z).
+
+

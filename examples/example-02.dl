@@ -54,10 +54,13 @@ numExpr("50202","1").
 createTrace(3,"L2").
 setTraceEnv(3,"x",3).
 
-/*
 createTrace(4,"L2").
 setTraceEnv(4,"x",7).
-*/
 
 .output traceStep
 .output valueAt
+
+.output traceFlow
+.output traceFlowSummary
+
+.output flow
