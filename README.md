@@ -33,7 +33,7 @@ To use the library to compute the concrete semantics of a program:
 Further analyses built on top of the concrete trace semantics:
 
 * Reaching definitions. See it with `.output reachingDef` (or see
-  [examples/example-03.dl](examples/example-03.dl)])
+  [examples/example-03.dl](examples/example-03.dl)).
 * General data flow, and data  flow for particular traces. See
   it with `.output flow`, `.output traceFlow`, and
   `.output traceFlowSummary` (or see
