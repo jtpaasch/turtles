@@ -1,0 +1,98 @@
+#include "library/library.dl"
+
+// =========================================================
+// Example 07
+// =========================================================
+
+/*
+------------------------------------------------------------
+PROGRAM TEXT
+------------------------------------------------------------
+
+L01 {
+L02     int x;
+L03     unsigned int y;
+L04     x = -5;
+L05     y = x + 1;
+L06 }
+
+------------------------------------------------------------
+THE AST
+------------------------------------------------------------
+
+The block has this structure ("SL" is short for stmtList, "S"
+is short for "statement", and dashes are nil statement lists):
+
+                  1 block
+ +------------------+-------------------+
+ |                                      |
+ |                                    2 SL
+ |                            +---------+-------+
+ |                            |                 |
+ |                           3 SL             10 S
+ |                +-----------+---------+       |
+ |                |                     |       |
+ |              4 SL                   9 S      |
+ |         +------+-----+               |       |
+ |         |            |               |       |
+ |       5 SL          8 S              |       |
+ |     +---+---+        |               |       |
+ |     |       |        |               |       |
+ |   6 SL     7 S       |               |       |
+ |     |       |        |               |       |
+ {     -       int x;   unsigned int y; x = -5; y = x + 1; }
+               L02      L03             L04     L05        Done
+
+*/
+
+progEntry(1).
+
+block(1,2).
+stmtList(2,3,10).
+stmtList(3,4,9).
+stmtList(4,5,8).
+stmtList(5,6,7).
+nilStmtList(6).
+
+declStmt(7,"L02",701,702).
+declSpecList(701,70101,70102).
+nilDeclSpecList(70101).
+simpleTypeSpec(70102,"int").
+declList(702,70201,70202).
+nilDeclList(70201).
+varDecl(70202,"x",7020200).
+nilInit(7020200).
+
+declStmt(8,"L03",801,802).
+declSpecList(801,80101,80102).
+declSpecList(80101,8010101,8010102).
+nilDeclSpecList(8010101).
+simpleTypeSpec(8010102,"unsigned").
+simpleTypeSpec(80102,"int").
+declList(802,80201,80202).
+nilDeclList(80201).
+varDecl(80202,"y",8020200).
+nilInit(8020200).
+
+valueStmt(9,"L04",900).
+assignOpExpr(900,"=",901,902).
+lvalExpr(901,"x").
+unOpExpr(902,"-",903).
+intLitExpr(903,"5").
+
+valueStmt(10,"L05",1000).
+assignOpExpr(1000,"=",1001,1002).
+lvalExpr(1001,"y").
+signedToUnsignedIntExpr(1002,1003).
+binOpExpr(1003,"+",100301,100302).
+lvalToRvalExpr(100301,10030100).
+lvalExpr(10030100,"x").
+intLitExpr(100302,"1").
+
+
+// =========================================================
+// Compute some stuff
+// =========================================================
+
+architecture("x86").
+createTrace(1,"L02").

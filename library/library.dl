@@ -1,8 +1,20 @@
+
+// =========================================================
+// Library
+// =========================================================
+
 #include "types.dl"
 #include "syntax.dl"
-#include "labels.dl"
-#include "traces.dl"
-#include "user-interface.dl"
+#include "control-points.dl"
 
-#include "reaching-defs.dl"
-#include "data-flows.dl"
+#include "architecture.dl"
+#include "traces.dl"
+
+// #include "memory.dl"
+
+
+.output trace
+.output env
+.output store
+.output lookupVar
+

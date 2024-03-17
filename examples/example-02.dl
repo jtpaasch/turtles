@@ -1,66 +1,141 @@
-#include "../library/library.dl"
+#include "library/library.dl"
 
-// -----------------------------------------------
-// A program
-// -----------------------------------------------
+// =========================================================
+// Example 02
+// =========================================================
 
 /*
-    {                 // block 1
-L2      if (x < 5) {  // if 2
-L3          y = 2;    // 3
-        } else {
-L5          skip;     // 4
-        }
-L7      y = y + 1;    // 5
-    }
+------------------------------------------------------------
+PROGRAM TEXT
+------------------------------------------------------------
+
+L01 {
+L02     int x, y = 0;
+L03     x = input();
+L04     x = x + 1;
+L05     {}
+L06     y = x;
+L07     ;
+L08 }
+
+------------------------------------------------------------
+THE AST
+------------------------------------------------------------
+
+The block has this structure ("SL" is short for stmtList, and
+dashes are nil statement lists):
+
+                          1 block
+ +---------------------------+-------------------------+
+ |                                                     |
+ |                                                   2 SL
+ |                                             +-------+---------+
+ |                                             |                 |
+ |                                          3  SL             15 skip
+ |                                     +-------+----------+      |
+ |                                     |                  |      |
+ |                                   4 SL             14 assgn   |
+ |                          +----------+-----------+      |      |
+ |                          |                      |      |      |
+ |                        5 SL                     |      |      |
+ |                +---------+---------+        12 block   |      |
+ |                |                   |          +-+-+    |      |
+ |              6 SL              11 assgn       |   |    |      |
+ |         +------+------+            |          |   |    |      |
+ |         |             |            |          |   |    |      |
+ |       7 SL      10 assgn           |          |   |    |      |
+ |     +---+---+         |            |          |   |    |      |
+ |     |       |         |            |          |   |    |      |
+ |   8 SL    9 decl      |            |          | 13 SL  |      |
+ |     |       |         |            |          |   |    |      |
+ {     -       int x...; x = input(); x = x + 1; {   -  } y = x; ; }
+               L02       L03          L04        L05      L06    L07  Done
+
+The declStmt at node 9 looks like this (dashes are nil lists):
+
+                      9 declStmt
+                           |
+           +---------------+---------------+
+           |                               |
+           |                         902 declList
+           |                   +-----------+----------+
+           |                   |                      |
+           |             90201 declList               |
+           |             +-----+-------+              |
+           |             |             |              |
+           |          9020101       9020102         90202
+     901 specList    declList       varDecl        varDecl
+     +-----+----+        |         +---+---+      +---+---+
+     |          |        |         |       |      |       |
+   90101      90102      |         |   902010200  |   9020200
+nilSpecList  typeSpec    |         |    nilInit   |  assignInit
+     |          |        |         |       |      |       |
+     -         int       -         x       -,     y     = 0
+
+The assignment at node 11 looks like this:
+
+            11 valueStmt (L04)
+                    |
+          1100 assignOpExpr (=)
+     +--------------+------------+
+     |                           |
+    lhs                         rhs
+     |                           |
+     |                   1102 binOpExpr (+)
+     |                  +--------+--------+
+     |                  |                 |
+     |        110201 lvalToRvalExpr       |
+     |                  |                 |
+1101 lvalExpr   11020100 lvalExpr   110202 intLitExpr
+     |                  |                 |
+     x           =      x        +        1
+
 */
 
+progEntry(1).
 
-// -----------------------------------------------
-// Encode it in datalog
-// -----------------------------------------------
+block(1,2).
+stmtList(2,3,15).
+stmtList(3,4,14).
+stmtList(4,5,12).
+stmtList(5,6,11).
+stmtList(6,7,10).
+stmtList(7,8,9).
+nilStmtList(8).
 
-program("1").
+block(12,13).
+nilStmtList(13).
 
-blockStmt("1","2").
-stmtList("empty","2").
-stmtList("2","5").
+declStmt(9,"L02",901,902).
+declSpecList(901,90101,90202).
+nilDeclSpecList(90101).
+simpleTypeSpec(90102,"int").
+declList(902,90201,90202).
+declList(90201,9020101,9020102).
+nilDeclList(9020101).
+varDecl(9020102,"x",902010200).
+nilInit(902010200).
+varDecl(90202,"y",9020200).
+intLitExpr(9020200,"0").
 
-ifStmt("2","L2","200","3","4").
-binRelOpBexpr("200","<","2000","20000").
-varExpr("2000","x").
-numExpr("20000","5").
+valueStmt(10,"L03",1000).
+assignOpExpr(1000,"=",1001,1002).
+lvalExpr(1001,"x").
+inputExpr(1002).
 
-valueStmt("3","L3","300").
-assignExpr("300","=","301","302").
-lhsVar("301","y").
-numExpr("302","2").
+valueStmt(11,"L04",1100).
+assignOpExpr(1100,"=",1101,1102).
+lvalExpr(1101,"x").
+binOpExpr(1102,"+",110201,110202).
+lvalToRvalExpr(110201,11020100).
+lvalExpr(11020100,"x").
+intLitExpr(110202,"1").
 
-valueStmt("4","L5","400").
-emptyExpr("400").
+valueStmt(14,"L06",1400).
+assignOpExpr(1400,"=",1401,1402).
+lvalExpr(1401,"y").
+lvalToRvalExpr(1401,140100).
+lvalExpr(140100,"x").
 
-valueStmt("5","L7","500").
-assignExpr("500","=","501","502").
-lhsVar("501","y").
-binArithOpExpr("502","+","50201","50202").
-varExpr("50201","y").
-numExpr("50202","1").
-
-
-// -----------------------------------------------
-// Compute some concrete traces
-// -----------------------------------------------
-
-createTrace(3,"L2").
-setTraceEnv(3,"x",3).
-
-createTrace(4,"L2").
-setTraceEnv(4,"x",7).
-
-.output traceStep
-.output valueAt
-
-.output traceFlow
-.output traceFlowSummary
-
-.output flow
+valueStmt(15,"L07",1500).
+emptyExpr(1500).

@@ -1,23 +1,37 @@
 
-// =========================================================
-// Types
-// =========================================================
+ // =========================================================
+ // Types
+ // =========================================================
 
-.type nid <: symbol // Node IDs (for AST nodes)
-.type lab <: symbol // Labels/program control points
+// Syntax
+// ----------------------------------------------------------
 
-.type num <: symbol // Integer literal/constant
-.type var <: symbol // Variable
-.type atom = var | num
+.type id <: number    // Node IDs
+.type cp <: symbol    // Control points
+.type ident <: symbol // Identifiers (e.g., variables)
+.type typ <: symbol   // C++ simple types, e.g., int, char, etc.
 
-.type bool <: symbol // "true" or "false"
+.type num <: symbol   // numerals (int literals)
 
-.type binArithOp <: symbol // Binary arithmetic operators, .e.g. "+"
-.type assignOp <: symbol // Assignment operators
-.type binRelOp <: symbol // Binary relational operators, e.g. "=="
+.type unOp <: symbol // E.g., "-"
+.type binOp <: symbol  // E.g., "+", "*", etc.
+.type assignOp <: symbol // E.g., "=", "+=", etc.
 
-.type action <: symbol // "init", "go-T", "go-F", "assgn", "skip", etc.
-.type tid <: number // A trace ID
-.type stg <: number // The stage/index-number in a trace
+.type bool <: symbol  // "true" or "false"
+.type relOp <: symbol // E.g., "<","<=","==", etc.
 
-.type val <: number // Arithmetic values are integers
+
+// Byte-addressed memory
+// ----------------------------------------------------------
+
+.type sz <: number // Bitwidth/size in bits
+.type bsz <: number // Bytesize/size in bytes
+.type endn <: symbol // Endianness
+.type addr <: number // Addresses
+.type offset <: number // Offsets
+.type val <: number // Values are numbers
+
+
+// Concrete traces
+// ----------------------------------------------------------
+

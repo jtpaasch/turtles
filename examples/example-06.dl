@@ -1,0 +1,80 @@
+#include "library/library.dl"
+
+// =========================================================
+// Example 06
+// =========================================================
+
+/*
+------------------------------------------------------------
+PROGRAM TEXT
+------------------------------------------------------------
+ 
+L01 {
+L02     int x;
+L03     goto foo;
+L04     x = 7;
+L05     foo: x = 3;
+L06 }
+
+
+------------------------------------------------------------
+THE AST
+------------------------------------------------------------
+
+The AST looks like this ("SL" is short for "stmtList", "S"
+is short for "statement", and dashes for nil stmt lists):
+
+
+         1 block
++------------+-----------+
+|                        |
+|                      2 SL
+|                +-------+--------+
+|                |                |
+|              3 SL             10 S
+|        +-------+------+      +--+-+
+|        |              |      |    |
+|      4 SL            9 S     |  11 S
+|    +---+----+         |      |    |
+|    |        |         |      |    |
+| 5 SL       8 S        |      |    |
+|  +-+-+      |         |      |    |
+|  |   |      |         |      |    |
+|6 SL 7 S     |         |      |    |
+|  |   |      |         |      |    |
+{  -   int x; goto foo; x = 7; foo: x = 3; }
+       L02    L03       L04    L05
+
+*/
+
+progEntry(1).
+
+block(1,2).
+stmtList(2,3,10).
+stmtList(3,4,9).
+stmtList(4,5,8).
+stmtList(5,6,7).
+
+nilStmtList(6).
+
+declStmt(7,"L02",701,702).
+declSpecList(701,70101,70102).
+nilDeclSpecList(70101).
+simpleTypeSpec(70102,"int").
+declList(702,70201,70202).
+nilDeclList(70201).
+varDecl(70202,"x",7020200).
+nilInit(7020200).
+
+gotoStmt(8,"L03","foo").
+
+valueStmt(9,"L04",900).
+assignOpExpr(900,"=",901,902).
+lvalExpr(901,"x").
+intLitExpr(902,"7").
+
+labeledStmt(10,"foo",11).
+valueStmt(11,"L05",1100).
+assignOpExpr(1100,"=",1101,1102).
+lvalExpr(1101,"x").
+intLitExpr(1102,"3").

@@ -1,0 +1,58 @@
+// =========================================================
+// Architecture
+// =========================================================
+
+.decl endianness(endian:endn)
+.decl littleEndianTag(endian:endn)
+.decl bigEndianTag(endian:endn)
+
+littleEndianTag("little").
+bigEndianTag("big").
+
+.decl byteSize(bits:sz)
+.decl addressSize(bits:sz)
+.decl wordSize(bits:sz)
+
+.decl sizeOfUnsignedInt(bytes:bsz)
+.decl sizeOfInt(bytes:bsz)
+
+.decl maxInt(val:val)
+maxInt(Z) :- sizeOfInt(B),byteSize(W),Z = (2^((B*W)-1)) - 1.
+
+.decl minInt(val:val)
+minInt(Z) :- sizeOfInt(B),byteSize(W),Z = -(2^((B*W)-1)).
+
+.decl maxUnsignedInt(val:val)
+maxUnsignedInt(Z) :- sizeOfUnsignedInt(B),byteSize(W),Z = 2^(B*W) - 1.
+
+.decl architecture(name:symbol)
+
+.decl x86(name:symbol)
+x86("x86").
+
+.decl x86_64(name:symbol)
+x86_64("x86_64").
+
+endianness("little") :- architecture(A),x86(A).
+addressSize(32) :- architecture(A),x86(A).
+wordSize(32) :- architecture(A),x86(A).
+byteSize(8) :- architecture(A),x86(A).
+sizeOfUnsignedInt(4) :- architecture(A),x86(A).
+sizeOfInt(4) :- architecture(A),x86(A).
+
+endianness("little") :- architecture(A),x86_64(A).
+addressSize(64) :- architecture(A),x86_64(A).
+wordSize(64) :- architecture(A),x86_64(A).
+byteSize(8) :- architecture(A),x86_64(A).
+sizeOfUnsignedInt(4) :- architecture(A),x86_64(A).
+sizeOfInt(4) :- architecture(A),x86_64(A).
+
+
+// =========================================================
+// CPU
+// =========================================================
+
+.decl dataOverflow(trace:tid,stage:stg,addr:addr,val:val)
+.decl arithOverflow(trace:tid,stage:stg,node:id)
+
+

@@ -1,0 +1,239 @@
+// =========================================================
+// Data/memory
+// =========================================================
+
+.decl data(trace:tid,stage:stg,addr:addr,val:val)
+
+.decl _data(trace:tid,stage:stg,addr:addr,val:val)
+
+dataOverflow(T,I,A,V),
+_data(T,I,A,V % W) :- data(T,I,A,V),byteSize(W),V >= (2^W).
+
+_data(T,I,A,V) :- data(T,I,A,V),byteSize(W),V < (2^W).
+
+
+
+// =========================================================
+// Byte-addressed memory - reads
+// =========================================================
+
+.decl buildReadValLittleEnd(
+      trace:tid,stage:stg,start:addr,offset:offset,val:val)
+
+buildReadValLittleEnd(T,I,A,0,V) :-
+  _data(T,I,A,V),doRead(T,I,A,_),
+  endianness(E),littleEndianTag(E).
+
+buildReadValLittleEnd(T,I,A,N+1,(((((2^W)^(N+1))-1)*V)+V)+Z) :-
+  byteSize(W),buildReadValLittleEnd(T,I,A,N,Z),
+  _data(T,I,A+(N+1),V),doRead(T,I,A,B),N < (B-1).
+
+.decl buildReadValBigEnd(
+      trace:tid,stage:stg,start:addr,offset:offset,val:val)
+
+buildReadValBigEnd(T,I,A,0,V) :-
+  _data(T,I,A+(B-1),V),doRead(T,I,A,B),
+  endianness(E),bigEndianTag(E).
+
+buildReadValBigEnd(T,I,A,N+1,(((((2^W)^(N+1))-1)*V)+V)+Z) :-
+  byteSize(W),buildReadValBigEnd(T,I,A,N,Z),
+  _data(T,I,(A+(B-1))-(N+1),V),doRead(T,I,A,B),N < (B-1).
+
+
+.decl read(trace:tid,stage:stg,addr:addr,bytes:number,val:val)
+
+read(T,I,A,B,Z) :-
+  endianness(E),littleEndianTag(E),
+  buildReadValLittleEnd(T,I,A,B-1,Z),doRead(T,I,A,B).
+read(T,I,A,B,Z) :-
+  endianness(E),bigEndianTag(E),
+  buildReadValBigEnd(T,I,A,B-1,Z),doRead(T,I,A,B).
+
+.decl readSigned(trace:tid,stage:stg,addr:addr,bytes:number,val:val)
+
+readSigned(T,I,A,B,Z) :-
+  endianness(E),littleEndianTag(E),
+  buildReadValLittleEnd(T,I,A,B-1,Z),doRead(T,I,A,B),
+  byteSize(W),M = 2^((W*B)-1),Z < M.
+readSigned(T,I,A,B,Z1) :-
+  endianness(E),littleEndianTag(E),
+  buildReadValLittleEnd(T,I,A,B-1,Z),doRead(T,I,A,B),
+  byteSize(W),M = 2^((W*B)-1),Z >= M,
+  C = 2^(W*B),Z1 = Z - C.
+
+readSigned(T,I,A,B,Z) :-
+  endianness(E),bigEndianTag(E),
+  buildReadValBigEnd(T,I,A,B-1,Z),doRead(T,I,A,B),
+  byteSize(W),M = 2^((W*B)-1),Z < M.
+readSigned(T,I,A,B,Z1) :-
+  endianness(E),bigEndianTag(E),
+  buildReadValBigEnd(T,I,A,B-1,Z),doRead(T,I,A,B),
+  byteSize(W),M = 2^((W*B)-1),Z >= M,
+  C = 2^(W*B),Z1 = Z - C.
+
+
+// =========================================================
+// Writes
+// =========================================================
+
+.decl requiredBits(val:val,progress:val,done:symbol)
+
+requiredBits(Z,1,"ok") :- doWriteSigned(_,_,_,Z),0 <= Z,Z <= 1.
+requiredBits(Z,1,"false") :- doWriteSigned(_,_,_,Z),Z > 1.
+
+requiredBits(-Z,1,"ok") :- doWriteSigned(_,_,_,Z),-1 <= Z,Z < 0.
+requiredBits(-Z,1,"false") :- doWriteSigned(_,_,_,Z),Z < -1.
+
+requiredBits(Z,P+1,"false") :- requiredBits(Z,P,"false"),Z > (2^(P+1)).
+requiredBits(Z,P+1,"ok") :- requiredBits(Z,P,"false"),Z <= (2^(P+1)).
+
+.decl requiredBytes(val:val,bytes:number)
+
+requiredBytes(Z,N) :-
+  requiredBits(Z,P,"ok"),byteSize(W),(P % W) = 0,N = (P / W).
+requiredBytes(Z,N) :-
+  requiredBits(Z,P,"ok"),byteSize(W),
+  (P % W) != 0,N = (P / W) + 1.
+
+doWrite(T,I,A,Z) :- doWriteSigned(T,I,A,Z),Z >= 0.
+doWrite(T,I,A,Z) :-
+  doWriteSigned(T,I,A,Z1),Z1 < 0,requiredBytes(-Z1,N),byteSize(W),
+  M = 2^(W*N),Z = Z1 + M.
+
+
+.decl buildBitsToWrite(
+      trace:tid,stage:stg,base:number,step:number,next:number,val:val)
+
+buildBitsToWrite(T,I,B,0,B / 2,B % 2) :- doWrite(T,I,_,B).
+
+buildBitsToWrite(T,I,B,N+1,Z / 2,Z % 2) :-
+  buildBitsToWrite(T,I,B,N,Z,_),doWrite(T,I,_,B),Z >= 1.
+
+// Zero pad
+buildBitsToWrite(T,I,B,N+1,0,0) :-
+  buildBitsToWrite(T,I,B,N,0,_),
+  byteSize(L),
+  ((N+1) % L) != 0.
+
+.decl buildBytesToWrite(
+      trace:tid,stage:stg,base:number,place:number,val:val)
+.decl bytesToWrite(
+      trace:tid,stage:stg,base:number,place:number,val:val)
+
+buildBytesToWrite(T,I,B,0,V) :-
+  buildBitsToWrite(T,I,B,0,_,Z),V=Z*(2^0).
+
+buildBytesToWrite(T,I,B,N+1,V) :-
+  buildBytesToWrite(T,I,B,N,_),
+  byteSize(L),
+  P=(N+1) % L,
+  P = 0,
+  buildBitsToWrite(T,I,B,N+1,_,Z),
+  V = (Z*(2^P)).
+
+buildBytesToWrite(T,I,B,N+1,V) :-
+  buildBytesToWrite(T,I,B,N,V1),
+  byteSize(L),
+  P=(N+1) % L,
+  P != 0, P != (L-1),
+  buildBitsToWrite(T,I,B,N+1,_,Z),
+  V = V1 + (Z*(2^P)).
+
+bytesToWrite(T,I,B,(N+1) / L,V),
+buildBytesToWrite(T,I,B,N+1,V) :-
+  buildBytesToWrite(T,I,B,N,V1),
+  byteSize(L),
+  P=(N+1) % L,
+  P != 0, P = (L-1),
+  buildBitsToWrite(T,I,B,N+1,_,Z),
+  V = V1 + (Z*(2^P)).
+
+
+.decl writeByteLittleEnd(
+      trace:tid,stage:stg,orig:val,addr:addr,offset:number,val:val)
+
+data(T,I,A,V),
+writeByteLittleEnd(T,I,Z,A,0,V) :-
+  doWrite(T,I,A,Z),bytesToWrite(T,I,Z,0,V),
+  endianness(E),littleEndianTag(E).
+
+data(T,I,A+N+1,V),
+writeByteLittleEnd(T,I,Z,A,N+1,V) :-
+  writeByteLittleEnd(T,I,Z,A,N,_),
+  bytesToWrite(T,I,Z,N+1,V).
+
+
+.decl writeByteBigEnd(
+      trace:tid,stage:stg,orig:val,addr:addr,offset:number,val:val)
+
+data(T,I,A,V),
+writeByteBigEnd(T,I,Z,A,0,V) :-
+  doWrite(T,I,A,Z),
+  _ = max J : bytesToWrite(T,I,Z,J,V),
+  endianness(E),bigEndianTag(E).
+
+data(T,I,A+N+1,V),
+writeByteBigEnd(T,I,Z,A,N+1,V) :-
+  writeByteBigEnd(T,I,Z,A,N,_),
+  J = max J : bytesToWrite(T,I,Z,J,_),
+  bytesToWrite(T,I,Z,J-(N+1),V).
+
+.decl write(trace:tid,stage:stg,addr:addr,bytes:number,val:val)
+
+write(T,I,A,N+1,V) :-
+  doWrite(T,I,A,V),endianness(E),bigEndianTag(E),
+  N = max J : { writeByteBigEnd(T,I,V,A,J,_) }.
+write(T,I,A,N+1,V) :-
+  doWrite(T,I,A,V),endianness(E),littleEndianTag(E),
+  N = max J : { writeByteLittleEnd(T,I,V,A,J,_) }.
+
+
+// =========================================================
+// User-interface
+// =========================================================
+
+.decl doRead(trace:tid,stage:stg,start:addr,bytes:number)
+
+.decl doWrite(trace:tid,stage:stg,addr:addr,val:val)
+.decl doWriteSigned(trace:tid,stage:stg,addr:addr,val:val)
+
+
+
+/* Example of use
+
+endianness("big").
+byteSize(3).
+
+// doWrite(2,0,3,256).
+// doRead(2,0,3,3).
+// doWrite(3,0,13,37).
+// doRead(3,0,13,2).
+
+doWriteSigned(4,0,20,-27).
+doRead(4,0,20,2).
+
+
+.output byteSize
+.output endianness
+.output buildBitsToWrite
+.output buildBytesToWrite
+.output bytesToWrite
+
+.output writeByteLittleEnd
+.output writeByteBigEnd
+.output data
+.output _data
+.output write
+
+.output buildReadValLittleEnd
+.output buildReadValBigEnd
+.output read
+
+.output doRead
+.output doWrite
+.output readSigned
+.output doWriteSigned
+.output requiredBits
+.output requiredBytes
+
+*/

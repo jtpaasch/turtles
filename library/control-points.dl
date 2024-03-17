@@ -1,0 +1,196 @@
+
+// =========================================================
+// Control points
+// =========================================================
+
+.decl at(node:id,cp:cp)
+// .output at
+
+at(N,C) :- declStmt(N,C,_,_).
+at(N,C) :- valueStmt(N,C,_).
+at(N,C) :- ifThenStmt(N,C,_,_).
+at(N,C) :- ifThenElseStmt(N,C,_,_,_).
+at(N,C) :- whileStmt(N,C,_,_).
+at(N,C) :- labeledStmt(N,_,N1),at(N1,C).
+at(N,C) :- breakStmt(N,C).
+at(N,C) :- continueStmt(N,C).
+at(N,C) :- gotoStmt(N,C,_).
+
+at(N,C) :- block(N,N1),at(N1,C).
+at(N,C) :- block(N1,N),nilStmtList(N),after(N1,C).
+at(N,C) :- stmtList(N,N1,_),at(N1,C).
+at(N,C) :- stmtList(N,N1,N2),nilStmtList(N1),at(N2,C).
+at(N,C) :- stmtList(_,N,N1),nilStmtList(N),at(N1,C).
+
+
+.decl after(node:id,cp:cp)
+// .output after
+
+after(N,"Done") :- progEntry(N).
+after(N,C) :- stmtList(_,N,N1),at(N1,C).
+after(N,C) :- block(N1,N),after(N1,C).
+after(N,C) :- stmtList(N1,_,N),after(N1,C).
+after(N,C) :- whileStmt(N1,_,_,N),at(N1,C).
+after(N,C) :- ifThenStmt(N1,_,_,N),after(N1,C).
+after(N1,C),
+after(N2,C) :- ifThenElseStmt(N,_,_,N1,N2),after(N,C).
+after(N,C) :- gotoStmt(N,_,L),labeledStmt(N1,L,_),at(N1,C).
+
+
+.decl escapeByBreak(node:id)
+// .output escapeByBreak
+
+escapeByBreak(N) :- breakStmt(N,_).
+escapeByBreak(N) :- ifThenStmt(N,_,_,N1),escapeByBreak(N1).
+escapeByBreak(N) :- ifThenElseStmt(N,_,_,N1,_),escapeByBreak(N1).
+escapeByBreak(N) :- ifThenElseStmt(N,_,_,_,N2),escapeByBreak(N2).
+escapeByBreak(N) :- stmtList(N,N1,_),escapeByBreak(N1).
+escapeByBreak(N) :- stmtList(N,_,N2),escapeByBreak(N2).
+escapeByBreak(N) :- block(N,N1),escapeByBreak(N1).
+
+
+.decl breakTo(node:id,cp:cp)
+// .output breakTo
+
+breakTo(N,C) :- whileStmt(N1,_,_,N),after(N1,C). // break to end of loop
+breakTo(N,C) :- ifThenStmt(N1,_,_,N),breakTo(N1,C).
+breakTo(N1,C),
+breakTo(N2,C) :- ifThenElseStmt(N,_,_,N1,N2),breakTo(N,C).
+breakTo(N,C) :- block(N1,N),breakTo(N1,C).
+breakTo(N,C) :- stmtList(N1,N,_),breakTo(N1,C).
+breakTo(N,C) :- stmtList(N1,_,N),breakTo(N1,C).
+
+// TODO: continue, goto - maybe continueTo/goTo
+
+
+.decl breakOf(node:id,cp:cp)
+// .output breakOf
+
+breakOf(N,C) :- block(N,N1),breakOf(N1,C).
+breakOf(N,C) :- stmtList(N,N1,_),breakOf(N1,C).
+breakOf(N,C) :- stmtList(N,_,N2),breakOf(N2,C).
+breakOf(N,C) :- ifThenStmt(N,_,_,N1),breakOf(N1,C).
+breakOf(N,C) :- ifThenElseStmt(N,_,_,N1,_),breakOf(N1,C).
+breakOf(N,C) :- ifThenElseStmt(N,_,_,_,N2),breakOf(N2,C).
+breakOf(N,C) :- breakStmt(N,_),at(N,C).
+breakOf(N,C) :- labeledStmt(N,_,N1),breakOf(N1,C).
+
+
+.decl escapeByContinue(node:id)
+// .output escapeByContinue
+
+escapeByContinue(N) :- continueStmt(N,_).
+escapeByContinue(N) :- ifThenStmt(N,_,_,N1),escapeByContinue(N1).
+escapeByContinue(N) :- ifThenElseStmt(N,_,_,N1,_),escapeByContinue(N1).
+escapeByContinue(N) :- ifThenElseStmt(N,_,_,_,N2),escapeByContinue(N2).
+escapeByContinue(N) :- stmtList(N,N1,_),escapeByContinue(N1).
+escapeByContinue(N) :- stmtList(N,_,N2),escapeByContinue(N2).
+escapeByContinue(N) :- block(N,N1),escapeByContinue(N1).
+escapeByContinue(N) :- labeledStmt(N,_,N1),escapeByContinue(N1).
+
+
+.decl continueTo(node:id,cp:cp)
+// .output continueTo
+
+continueTo(N,C) :- whileStmt(_,_,_,N),after(N,C).
+continueTo(N,C) :- ifThenStmt(N1,_,_,N),continueTo(N1,C).
+continueTo(N1,C),
+continueTo(N2,C) :- ifThenElseStmt(N,_,_,N1,N2),continueTo(N,C).
+continueTo(N,C) :- block(N1,N),continueTo(N1,C).
+continueTo(N,C) :- stmtList(N1,N,_),continueTo(N1,C).
+continueTo(N,C) :- stmtList(N1,_,N),continueTo(N1,C).
+continueTo(N,C) :- labeledStmt(N1,_,N),continueTo(N1,C).
+
+
+.decl continueOf(node:id,cp:cp)
+// .output continueOf
+
+continueOf(N,C) :- block(N,N1),continueOf(N1,C).
+continueOf(N,C) :- stmtList(N,N1,_),continueOf(N1,C).
+continueOf(N,C) :- stmtList(N,_,N2),continueOf(N2,C).
+continueOf(N,C) :- ifThenStmt(N,_,_,N1),continueOf(N1,C).
+continueOf(N,C) :- ifThenElseStmt(N,_,_,N1,_),continueOf(N1,C).
+continueOf(N,C) :- ifThenElseStmt(N,_,_,_,N2),continueOf(N2,C).
+continueOf(N,C) :- continueStmt(N,_),at(N,C).
+continueOf(N,C) :- labeledStmt(N,_,N1),continueOf(N1,C).
+
+
+.decl escapeByGoto(node:id)
+// .output escapeByGoto
+
+escapeByGoto(N) :- gotoStmt(N,_,_).
+escapeByGoto(N) :- ifThenStmt(N,_,_,N1),escapeByGoto(N1).
+escapeByGoto(N) :- ifThenElseStmt(N,_,_,N1,_),escapeByGoto(N1).
+escapeByGoto(N) :- ifThenElseStmt(N,_,_,_,N2),escapeByGoto(N2).
+escapeByGoto(N) :- whileStmt(N,_,_,N1),escapeByGoto(N1).
+escapeByGoto(N) :- stmtList(N,N1,_),escapeByGoto(N1).
+escapeByGoto(N) :- stmtList(N,_,N2),escapeByGoto(N2).
+escapeByGoto(N) :- block(N,N1),escapeByGoto(N1).
+escapeByGoto(N) :- labeledStmt(N,_,N1),escapeByGoto(N1).
+
+
+.decl goTo(node:id,cp:cp)
+// .output goTo
+
+goTo(N,C) :- gotoStmt(N,_,L),labeledStmt(N1,L,_),at(N1,C).
+goTo(N,C) :- whileStmt(N,_,_,N1),goTo(N1,C).
+goTo(N,C) :- ifThenStmt(N,_,_,N1),goTo(N1,C).
+goTo(N,C) :- ifThenElseStmt(N,_,_,N1,_),goTo(N1,C).
+goTo(N,C) :- ifThenElseStmt(N,_,_,_,N2),goTo(N2,C).
+goTo(N,C) :- block(N,N1),goTo(N1,C).
+goTo(N,C) :- stmtList(N,N1,_),goTo(N1,C).
+goTo(N,C) :- stmtList(N,_,N2),goTo(N2,C).
+goTo(N,C) :- labeledStmt(N,_,N1),goTo(N1,C).
+
+
+.decl gotoOf(node:id,cp:cp)
+// .output continueOf
+
+gotoOf(N,C) :- gotoStmt(N,_,_),at(N,C).
+gotoOf(N,C) :- block(N,N1),gotoOf(N1,C).
+gotoOf(N,C) :- stmtList(N,N1,_),gotoOf(N1,C).
+gotoOf(N,C) :- stmtList(N,_,N2),gotoOf(N2,C).
+gotoOf(N,C) :- ifThenStmt(N,_,_,N1),continueOf(N1,C).
+gotoOf(N,C) :- ifThenElseStmt(N,_,_,N1,_),gotoOf(N1,C).
+gotoOf(N,C) :- ifThenElseStmt(N,_,_,_,N2),gotoOf(N2,C).
+gotoOf(N,C) :- labeledStmt(N,_,N1),gotoOf(N1,C).
+
+
+.decl in(node:id,cp:cp)
+// .output in
+
+in(N,C) :- block(N,N1),in(N1,C).
+in(N,C) :- stmtList(N,N1,_),in(N1,C).
+in(N,C) :- stmtList(N,_,N2),in(N2,C).
+in(N,C) :- nilStmtList(N),at(N,C).
+in(N,C) :- declStmt(N,_,_,_),at(N,C).
+in(N,C) :- valueStmt(N,_,N1),emptyExpr(N1),at(N,C).
+in(N,C) :- valueStmt(N,_,N1),assignOpExpr(N1,_,_,_),at(N,C).
+in(N,C) :- ifThenStmt(N,_,_,_),at(N,C).
+in(N,C) :- ifThenStmt(N,_,_,N1),in(N1,C).
+in(N,C) :- ifThenElseStmt(N,_,_,_,_),at(N,C).
+in(N,C) :- ifThenElseStmt(N,_,_,N1,_),in(N1,C).
+in(N,C) :- ifThenElseStmt(N,_,_,_,N2),in(N2,C).
+in(N,C) :- whileStmt(N,_,_,_),at(N,C).
+in(N,C) :- whileStmt(N,_,_,N1),in(N1,C).
+in(N,C) :- breakStmt(N,_),at(N,C).
+in(N,C) :- continueStmt(N,_),at(N,C).
+in(N,C) :- labeledStmt(N,_,_),at(N,C).
+in(N,C) :- labeledStmt(N,_,N1),in(N1,C).
+in(N,C) :- gotoStmt(N,_,_),at(N,C).
+
+
+.decl labs(node:id,cp:cp)
+// .output labs
+
+labs(N,C) :- in(N,C).
+labs(N,C) :- after(N,C).
+
+
+.decl labx(node:id,cp:cp)
+// .output labx
+
+labx(N,C) :- labs(N,C).
+labx(N,C) :- escapeByBreak(N),breakTo(N,C).
+labx(N,C) :- escapeByContinue(N),continueTo(N,C).
+labx(N,C) :- escapeByGoto(N),goTo(N,C).

@@ -1,99 +1,110 @@
-#include "../library/library.dl"
+#include "library/library.dl"
 
-// -----------------------------------------------
-// A program
-// -----------------------------------------------
+// =========================================================
+// Example 04
+// =========================================================
 
 /*
---  {                            // 1
-L2      while (x < 5) {          // 2
-L3          if (0 < y) {         // if: 3, compound: 4
-L4              x = x + 1;       // 5
-L5              y = y + (-1);    // 6
---          } else {             // compound: 7
-L7              if (y == 0) {    // 8
-L8                  x = 5;       // 9
---              } else {
-L10                 skip;        // 10
----             }
-L12             z = 1;           // 11
----         }
----     }
---- }
+------------------------------------------------------------
+PROGRAM TEXT
+------------------------------------------------------------
+
+L01 {
+L02     int x;
+L03     x = x + 1;
+L04     while (true) {
+L05         x = x + 1;
+L06         if (2 < x) {
+L07             break;
+L08         }
+L09     }
+L10     ;
+L11 }
+
+------------------------------------------------------------
+THE AST
+------------------------------------------------------------
+
+The AST looks like this ("SL" is short for "stmtList", "S" is
+short for "statement", and dashes are short for nil stmt lists):
+
+                   1 block
++---------------------+----------------------+
+|                                            |
+|                                          2 SL
+|                   +------------------------+------------------------+
+|                   |                                                 |
+|                 3 SL                                              17 S
+|         +---------+---------+                                       |
+|         |                   |                                       |
+|         |                  9 S                                      |
+|         |          +--------+---------+                             |
+|         |          |                  |                             |
+|         |          |               10 block                         |
+|         |          |            +-----+-----+                       |
+|         |          |            |           |                       |
+|       4 SL         |            |         11 SL                     |
+|    +----+---+      |            |    +------+------+                |
+|    |        |      |            |    |             |                |
+|  5 SL      8 S     |            |  12 SL         15 S               |
+|  +-+-+      |      |            |  +-+-+      +----+-----+          |
+|  |   |      |      |            |  |   |      |          |          |
+|6 SL 7 S     |      |            |13 SL 14 S   |        16 S         |
+|  |   |      |      |            |  |   |      |          |          |
+{  -   int x; x=x+1; while (true) {  -   x=x+1; if (2<x) { break; } } ; }
+       L02    L03    L04                 L05    L06        L07        L10
 
 */
 
+progEntry(1).
 
-// -----------------------------------------------
-// Encode it in datalog
-// -----------------------------------------------
+block(1,2).
+stmtList(2,3,17).
+stmtList(3,4,9).
+stmtList(4,5,8).
+stmtList(5,6,7).
+nilStmtList(6).
 
-program("1").
+declStmt(7,"L02",701,702).
+declSpecList(701,70101,70102).
+nilDeclSpecList(70101).
+simpleTypeSpec(70102,"int").
+declList(702,70201,70202).
+nilDeclList(70201).
+varDecl(70202,"x",7020200).
+nilInit(7020200).
 
-blockStmt("1","2").
-stmtList("empty","2").
+valueStmt(8,"L03",800).
+assignOpExpr(800,"=",801,802).
+lvalExpr(801,"x").
+binOpExpr(802,"+",80201,80202).
+lvalToRvalExpr(80201,8020100).
+lvalExpr(8020100,"x").
+intLitExpr(80202,"1").
 
-whileStmt("2","L2","200","3").
-binRelOpBexpr("200","<","201","202").
-varExpr("201","x").
-numExpr("202","5").
+whileStmt(9,"L04",900,10).
+boolLitExpr(900,"true").
 
-ifStmt("3","L3","300","4","7").
-binRelOpBexpr("300","<","301","302").
-numExpr("301","0").
-varExpr("302","y").
+block(10,11).
+stmtList(11,12,15).
+stmtList(12,13,14).
+nilStmtList(13).
 
-blockStmt("4","5").
-stmtList("empty","5").
-stmtList("5","6").
+valueStmt(14,"L05",1400).
+assignOpExpr(1400,"=",1401,1402).
+lvalExpr(1401,"x").
+binOpExpr(1402,"+",140201,140202).
+lvalToRvalExpr(140201,14020100).
+lvalExpr(14020100,"x").
+intLitExpr(140202,"1").
 
-valueStmt("5","L4","500").
-assignExpr("500","=","501","502").
-lhsVar("501","x").
-binArithOpExpr("502","+","50201","50202").
-varExpr("50201","x").
-numExpr("50202","1").
+ifThenStmt(15,"L06",1500,16).
+relOpExpr(1500,"<",1501,1502).
+intLitExpr(1501,"2").
+lvalToRvalExpr(1502,150200).
+lvalExpr(150200,"x").
 
-valueStmt("6","L5","600").
-assignExpr("600","=","601","602").
-lhsVar("601","y").
-binArithOpExpr("602","+","60201","60202").
-varExpr("60201","y").
-numExpr("60202","-1").
+breakStmt(16,"L07").
 
-blockStmt("7","8").
-stmtList("empty","8").
-stmtList("8","11").
-
-ifStmt("8","L7","800","9","10").
-binRelOpBexpr("800","==","801","802").
-varExpr("801","y").
-numExpr("802","0").
-
-valueStmt("9","L8","900").
-assignExpr("900","=","901","902").
-lhsVar("901","x").
-numExpr("902","5").
-
-valueStmt("10","L10","1000").
-emptyExpr("10").
-
-valueStmt("11","L12","1100").
-assignExpr("1100","=","1101","1102").
-lhsVar("1101","z").
-numExpr("1102","1").
-
-
-// -----------------------------------------------
-// Compute some concrete traces
-// -----------------------------------------------
-
-createTrace(6,"L2").
-setTraceEnv(6,"x",5).
-
-createTrace(7,"L2").
-setTraceEnv(7,"x",3).
-setTraceEnv(7,"y",0).
-
-.output traceStep
-.output valueAt
+valueStmt(17,"L10",1700).
+emptyExpr(1700).

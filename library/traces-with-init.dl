@@ -1,0 +1,176 @@
+
+// =========================================================
+// Traces
+// =========================================================
+
+.type tid <: number // Trace IDs
+.type stg <: number // The stage or index in a trace.
+.type act <: symbol // Actions in a trace
+
+
+// ---------------------------------------------------------
+// Actions
+// ---------------------------------------------------------
+
+.decl nopActionTag(tag:act)
+nopActionTag("nop").
+
+.decl declActionTag(tag:act)
+declActionTag("decl").
+
+.decl assignActionTag(tag:act)
+assignActionTag("assgn").
+
+.decl trueBranchActionTag(tag:act)
+trueBranchActionTag("go-T").
+
+.decl falseBranchActionTag(tag:act)
+falseBranchActionTag("go-F").
+
+.decl breakActionTag(tag:act)
+breakActionTag("break").
+
+.decl continueActionTag(tag:act)
+continueActionTag("continue").
+
+.decl gotoActionTag(tag:act)
+gotoActionTag("goto").
+
+.decl initActionTag(tag:act)
+initActionTag("init").
+
+.decl initCP(cp:cp)
+initCP("-").
+
+
+.decl declAction(trace:tid,stage:stg,var:ident,init:val)
+
+.decl assignAction(trace:tid,stage:stg,var:ident,addr:addr,val:val)
+.decl noAssignAction(trace:tid,stage:stg,var:ident)
+
+.decl trueBranchAction(trace:tid,stage:stg,node:id)
+.decl falseBranchAction(trace:tid,stage:stg,node:id)
+
+
+// ---------------------------------------------------------
+// Syntax helpers
+// ---------------------------------------------------------
+
+.decl isSkip(node:id)
+isSkip(N) :- valueStmt(N,_,E),emptyExpr(E).
+
+.decl isDecl(node:id)
+isDecl(N) :- declStmt(N,_,_,_).
+
+.decl isAssignment(node:id)
+isAssignment(N) :- valueStmt(N,_,E),assignOpExpr(E,_,_,_).
+
+.decl lhsLvalOf(node:id,var:ident)
+lhsLvalOf(N,V) :-
+  valueStmt(N,_,E),assignOpExpr(E,_,LHS,_),lvalExpr(LHS,V).
+
+.decl rhsExprOf(node:id,expr:id)
+rhsExprOf(N,RHS) :- valueStmt(N,_,E),assignOpExpr(E,_,_,RHS).
+
+.decl progVar(var:ident)
+progVar(V) :- lvalExpr(_,V).
+
+
+// ---------------------------------------------------------
+// Concrete traces (program executions)
+// ---------------------------------------------------------
+
+.decl trace(trace:tid,stage:stg,from:cp,action:act,to:cp)
+
+// First/init step in a trace.
+trace(T,0,C1,A,C2) :-
+  createTrace(T,C2),initActionTag(A),initCP(C1).
+
+// Decl statements
+trace(T,I+1,C1,A,C2) :-
+  trace(T,I,_,_,C1),
+  at(N,C1),isDecl(N),
+  declActionTag(A),
+  after(N,C2).
+
+// Skips/empty statements
+trace(T,I+1,C1,A,C2) :-
+  trace(T,I,_,_,C1),
+  at(N,C1),isSkip(N),
+  nopActionTag(A),
+  after(N,C2).
+
+// Assignments
+assignAction(T,I+1,V,L,Z),
+trace(T,I+1,C1,A,C2) :-
+  trace(T,I,_,_,C1),
+  at(N,C1),isAssignment(N),
+  assignActionTag(A),
+  after(N,C2),
+  lhsLvalOf(N,V),
+  rhsExprOf(N,RHS),
+  env(T,I,V,L),
+  eval(T,I,RHS,Z).
+
+noAssignAction(T,I,V) :-
+  assignAction(T,I,V1,_,_),
+  progVar(V), V != V1.
+
+
+// ---------------------------------------------------------
+// Machine state/configuration
+// ---------------------------------------------------------
+
+.decl env(trace:tid,stage:stg,var:ident,addr:addr)
+.decl store(trace:tid,stage:stg,addr:addr,val:val)
+
+env(T,0,V,A) :- initEnv(T,V,A).
+env(T,I,V,A) :- assignAction(T,I,V,A,_).
+env(T,I,V,A) :-
+  trace(T,I,_,Act,_),!assignActionTag(Act),
+  env(T,I-1,V,A).
+
+store(T,0,A,Z) :- initStore(T,A,Z).
+store(T,I,A,Z) :- assignAction(T,I,_,A,Z).
+store(T,I,A,Z) :-
+  trace(T,I,_,Act,_),!assignActionTag(Act),
+  store(T,I-1,A,Z).
+
+.decl lookupVar(trace:tid,stage:stg,var:ident,val:val)
+lookupVar(T,I,V,Z) :- env(T,I,V,A),store(T,I,A,Z).
+
+
+// ---------------------------------------------------------
+// Eval (expressions)
+// ---------------------------------------------------------
+
+.decl eval(trace:tid,stage:stg,node:id,val:val)  
+
+eval(T,I,N,Z) :- trace(T,I,_,_,_),inputExpr(N),userInput(T,N,Z).
+eval(T,I,N,W) :- trace(T,I,_,_,_),intLitExpr(N,Z), W = to_number(Z).
+eval(T,I,N,Z) :- trace(T,I,_,_,_),lvalExpr(N,V),lookupVar(T,I,V,Z).
+
+eval(T,I,N,Z) :- trace(T,I,_,_,_),lvalToRvalExpr(N,N1),eval(T,I,N1,Z).
+eval(T,I,N,Z) :-
+  trace(T,I,_,_,_),
+  binOpExpr(N,Op,LHS,RHS),isAddOp(Op),
+  eval(T,I,LHS,Z1),eval(T,I,RHS,Z2),
+  Z = Z1 + Z2.
+
+
+// ---------------------------------------------------------
+// User interface
+// ---------------------------------------------------------
+
+.decl createTrace(trace:tid,start:cp)
+.decl setTraceVar(trace:tid,var:ident,val:val)
+.decl userInput(trace:tid,node:id,val:val)
+
+.decl initEnv(trace:tid,var:ident,addr:addr)
+.decl initStore(trace:tid,addr:addr,val:val)
+
+initEnv(T,V,autoinc()) :- setTraceVar(T,V,_).
+initStore(T,A,Z) :- setTraceVar(T,V,Z),initEnv(T,V,A).
+
+initEnv(T,V,autoinc()) :- createTrace(T,_),progVar(V),!setTraceVar(T,V,_).
+initStore(T,A,0) :- initEnv(T,V,A),!setTraceVar(T,V,_).

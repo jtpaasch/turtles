@@ -1,7 +1,7 @@
 #include "library/library.dl"
 
 // =========================================================
-// Example 01
+// Example 00
 // =========================================================
 
 /*
@@ -10,9 +10,9 @@ PROGRAM TEXT
 ------------------------------------------------------------
 
 L01 {
-L02     int x, y;
-L03     x = 5;
-L04     y = x + 1;
+L02     int x;
+L03     x = x + 1;
+L04     x = x + 1;
 L05 }
 
 ------------------------------------------------------------
@@ -23,21 +23,21 @@ The block has this structure ("SL" is short for stmtList, "S"
 is short for "statement", and dashes are nil statement lists):
 
            1 block
- +------------+-----------+
- |                        |
- |                       2 SL
- |                +-------+-----+
- |                |             |
- |              3 SL           8 S
- |         +------+------+      |
- |         |             |      |
- |       4 SL           7 S     |
- |     +---+---+         |      |
- |     |       |         |      |
- |   5 SL     6 S        |      |
- |     |       |         |      |
- {     -       int x, y; x = 5; y = x + 1; }
-               L02       L03    L04        Done
+ +------------+----------+
+ |                       |
+ |                      2 SL
+ |              +--------+-------+
+ |              |                |
+ |             3 SL             8 S
+ |         +----+-----+          |
+ |         |          |          |
+ |       4 SL        7 S         |
+ |     +---+---+      |          |
+ |     |       |      |          |
+ |   5 SL     6 S     |          |
+ |     |       |      |          |
+ {     -       int x; x = x + 1; x = x + 1; }
+               L02    L03        L04        Done
 
 */
 
@@ -54,21 +54,21 @@ declSpecList(601,60101,60102).
 nilDeclSpecList(60101).
 simpleTypeSpec(60102,"int").
 declList(602,60201,60202).
-declList(60201,6020101,6020102).
-nilDeclList(6020101).
-varDecl(6020102,"x",602010200).
-nilInit(602010200).
-varDecl(60202,"y",6020200).
+nilDeclList(60201).
+varDecl(60202,"x",6020200).
 nilInit(6020200).
 
 valueStmt(7,"L03",700).
 assignOpExpr(700,"=",701,702).
 lvalExpr(701,"x").
-intLitExpr(702,"5").
+binOpExpr(702,"+",70201,70202).
+lvalToRvalExpr(70201,7020100).
+lvalExpr(7020100,"x").
+intLitExpr(70202,"1").
 
 valueStmt(8,"L04",800).
 assignOpExpr(800,"=",801,802).
-lvalExpr(801,"y").
+lvalExpr(801,"x").
 binOpExpr(802,"+",80201,80202).
 lvalToRvalExpr(80201,8020100).
 lvalExpr(8020100,"x").
@@ -81,3 +81,4 @@ intLitExpr(80202,"1").
 
 architecture("x86").
 createTrace(1,"L02").
+

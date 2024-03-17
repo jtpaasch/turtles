@@ -1,347 +1,103 @@
 
-
 // =========================================================
-// Syntax encoding
-// =========================================================
-
-/*
- * Programs
- *
- *     <program> ::= <block>
- *
- * A program's node ID is the node ID of a block statement.
- */
-.decl program(node:nid)
-// .output program
-
-/*
- * Blocks
- *
- *     <block> ::= { <statement-list> }
- *
- * We record the node Id of the block, and the node ID of the
- * first statement in the enclosed statement list.
- *
- * See `stmtList(N1,N2)` for an example.
- */
-.decl blockStmt(node:nid,first:nid)
-// .output blockStmt
-
-/*
- * Statement lists
- *
- *     <statement-list> ::= <empty> | <statement-list> <statement>
- *
- * We record the node ID of the statement list, and the node ID
- * of the statement that comes after. E.g., take this block:
- *
- *     {         // Node ID 1
- *        S1;    // Node ID 2
- *        S2;    // Node ID 3
- *     }
- *
- * As an AST, that looks like this:
- *
- *                  Block at node ID 1
- *      First node in the enclosed list: node ID 2
- *                        |
- *             Stmt list at node ID 3
- *                        |
- *              +---------+--------+
- *              |                  |         
- *   Stmt list at node ID 2        |
- *              |                  |
- *        +-----+-----+            |
- *        |           |            |
- *      empty     Node ID 2     Node ID 3
- *     StmtList      S1            S2
- *
- * We encode that like this:
- *
- *     blockStmt("1","2").
- *     stmtList("empty","2").
- *     stmtList("2","3").
- */
-.decl stmtList(list:nid,last:nid)
-// .output stmtList
-
-/*
- * A statement list can be empty. Since there are no nodes inside
- * an empty list, we use a special node ID to indicate that it
- * is an empty list: we'll write "empty" for its node ID.
- *
- * See `stmtList(N1,N2)` for an example.
- */
-.decl isEmptyStmtList(node:nid)
-// .output isEmptyStmtList
-
-isEmptyStmtList("empty").
-
-/* 
- * Statements
- *
- *     <statement> ::= <value-statement>
- *                   | <if-statement>
- *                   | <while-loop>
- *                   | <block>
- *
- * Each statement has a node ID and a label, as well as other
- * sub-expressions, etc.
- */
-
-/*
- * Value-statements
- *
- *     <value-statement> ::= <expr> | <bexpr>
- *
- * We record the statement's node ID, its label, and the ID of the
- * expression that makes up its contents.
- */
-.decl valueStmt(node:nid,lab:lab,expr:nid)
-// .output valueStmt
-
-/*
- * If-statements
- *
- *     <if-statement> ::= if (<bexpr>) then <statement> else <statement>
- *
- * We record the statement's node ID,its label, the node ID of
- * the condition/test, and the node IDs of the then-branch
- * and the else-branch.
- */
-.decl ifStmt(node:nid,lab:lab,cond:nid,then:nid,else:nid)
-// .output ifStmt
-
-/*
- * While-statements
- *
- *     <while-statement> ::= while (<bexpr>) do <statement> done
- *
- * We record the statement's node ID, its label, the node ID
- * of condition/test, and the node ID of its body.
- */
-.decl whileStmt(node:nid,lab:lab,cond:nid,body:nid)
-// .output whileStmt
-
-/*
- * Arithmetic expressions
- *
- *     <expr> ::= <bin-op-expr>
- *              | <int-literal>
- *              | <identifier>
- *              | <empty>
- *
- */
-
-/*
- * Integer literals
- *
- *     <int-literal> ::= 0 | 1 | 2 | etc.
- *
- * We record the node ID of the numeral occurrence, and
- * the numeral itself.
- */
-.decl numExpr(node:nid,num:num)
-// .output numExpr
-
-/*
- * Identifier expressions (variables)
- *
- *     <identifier> ::= x | y | foo | bar | etc.
- *
- * We record the node ID of the variable occurrence, and the
- * variable/identifier name.
- */
-.decl varExpr(node:nid,var:var)
-// .output varExpr
-
-/*
- * Empty expressions
- *
- *     <empty> ::= skip
- *
- * We record the node ID of the empty expression's occurrence.
- */
-.decl emptyExpr(node:nid)
-// .output emptyExpr
-
-/*
- * Binary operation expressions
- *
- *     <bin-op-expr> ::= <expr> <bin-arith-op> <expr>
- *                     | <lhs-expr> <assign-op> <expr>
- *
- * Examples are binary arithmetic operations like "3 + 2",
- * or assignment expressions like "x = 4".
- */
-
-/*
- * Binary arithmetic operators
- *
- *     <bin-arith-op> ::= + | * | etc.
- *
- * We record the node ID of the binary arithmetic operator, which
- * operator symbol is used, and the LHS and RHS nodes of the operation.
- */
-.decl binArithOpExpr(node:nid,op:binArithOp,lhs:nid,rhs:nid)
-// .output binArithOpExpr
-
-.decl binArithPlusOp(op:binArithOp)
-binArithPlusOp("+").
-
-/*
- * Assignment operators
- *
- *     <assign-op> ::= = | += | etc.
- *
- * We record the node ID of the assignment operator, which operator
- * symbol is used, and the LHS and RHS nodes of the assignment.
- */
-.decl assignExpr(node:nid,op:assignOp,lhs:nid,rhs:nid)
-// .output assignExpr
-
-.decl assignEqualsOp(op:assignOp)
-assignEqualsOp("=").
-
-/*
- * LHS expressions (on the LHS of an assignment operator).
- *
- *     <lhs-expr> ::= <identifier>
- *
- * We record the node ID where the variable occurs, and the
- * variable itself.
- */
-.decl lhsVar(node:nid,var:var)
-// .output lhsVar
-
-/*
- * Boolean expressions
- *
- *     <bexpr> ::= <bool-literal>
- *               | <expr>
- *               | <expr> <bin-rel-op> <expr>
- *
- * Boolean expressions are either literal "true" or "false"
- * boolean expressions, arithmetic expressions that are evaluated
- * as boolean values, or relational test operations. Arithmetic
- * expressions are evaluated as C++ does: 0 is false, and every
- * other number is true.
- */
-
-/*
- * Boolean literals
- *
- *     <bool-literal> ::= true | false
- *
- * We record the node ID of the boolean literal's occurrence,
- * as well as which literal it is.
- */
-.decl boolBexpr(node:nid,bool:bool)
-// .output boolBexpr
-
-.decl boolTrue(bool:bool)
-boolTrue("true").
-
-.decl boolFalse(bool:bool)
-boolFalse("false").
-
-.decl boolArithExpr(node:nid)
-// .output boolArithExpr
-
-
-/*
- * Binary relational operators
- *
- *     <bin-rel-op> ::= < | == | != | etc.
- *
- * We record the node ID of the relational operator, which operator
- * symbol is used, and the LHS and RHS nodes of the operation.
- */
-.decl binRelOpBexpr(node:nid,op:binRelOp,lhs:nid,rhs:nid)
-// .output binRelOpBexpr
-
-.decl binRelLessThanOp(op:binRelOp)
-binRelLessThanOp("<").
-
-.decl binRelEqualsOp(op:binRelOp)
-binRelEqualsOp("==").
-
-
-// =========================================================
-// Some helpers
+// Syntax
 // =========================================================
 
-.decl isSkip(lab:lab)
-isSkip(L) :- valueStmt(_,L,E),emptyExpr(E).
 
-.decl isAssignment(lab:lab)
-isAssignment(L) :- valueStmt(_,L,E),assignExpr(E,_,_,_).
+// ---------------------------------------------------------
+// Expressions (arithmetic)
+// ---------------------------------------------------------
 
-.decl isIfStmt(lab:lab)
-isIfStmt(L) :- ifStmt(_,L,_,_,_).
+.decl emptyExpr(node:id)
+.decl inputExpr(node:id)
+.decl intLitExpr(node:id,num:num)
+.decl lvalExpr(node:id,var:ident)
+.decl lvalToRvalExpr(node:id,lval:id)
+.decl signedToUnsignedIntExpr(node:id,expr:id)
+.decl unsignedToSignedIntExpr(node:id,expr:id)
 
-.decl isWhileStmt(lab:lab)
-isWhileStmt(L) :- whileStmt(_,L,_,_).
+.decl unOpExpr(node:id,op:unOp,expr:id)
 
-.decl lhsVarOfAssignment(lab:lab,var:var)
-lhsVarOfAssignment(L,V) :-
-  valueStmt(_,L,E),
-  assignExpr(E,OP,LHS,_),
-  assignEqualsOp(OP),
-  lhsVar(LHS,V).
+.decl isNegOp(op:unOp)
+isNegOp("-").
 
-.decl lhsVarNodeOfAssignment(lab:lab,node:nid)
-lhsVarNodeOfAssignment(L,LHS) :-
-  valueStmt(_,L,E),
-  assignExpr(E,OP,LHS,_),
-  assignEqualsOp(OP).
+.decl binOpExpr(node:id,op:binOp,lhs:id,rhs:id)
 
-.decl rhsExprOfAssignment(lab:lab,node:nid)
-rhsExprOfAssignment(L,RHS) :-
-  valueStmt(_,L,E),isAssignment(L),
-  assignExpr(E,OP,_,RHS),
-  assignEqualsOp(OP).
+.decl isAddOp(op:binOp)
+isAddOp("+").
 
-.decl guardExprOfIfStmt(lab:lab,node:nid)
-guardExprOfIfStmt(L,N) :- ifStmt(_,L,N,_,_).
+// isMultOp("*").
+// etc.
 
-.decl guardExprOfWhileStmt(lab:lab,node:nid)
-guardExprOfWhileStmt(L,N) :- whileStmt(_,L,N,_).
+.decl assignOpExpr(node:id,op:assignOp,lhs:id,rhs:id)
+
+.decl isAssignOp(op:assignOp)
+isAssignOp("=").
+
+// isAddAndAssignOp("+=").
+// etc.
 
 
-.decl progVar(var:var)
-// .output progVar
+// ---------------------------------------------------------
+// Boolean expressions
+// ---------------------------------------------------------
 
-progVar(V) :- varExpr(_,V).
-progVar(V) :- lhsVar(_,V).
+.decl boolLitExpr(node:id,bool:bool)
+.decl relOpExpr(node:id,op:relOp,lhs:id,rhs:id)
 
+.decl isLtOp(op:relOp)
 
-.decl inLabel(node:nid,label:lab)
-// .output inLabel
+isLtOp("<").
 
-inLabel(N,L) :- valueStmt(N,L,_).
-inLabel(N,L) :- valueStmt(_,L,N).
-
-inLabel(N,L) :- ifStmt(N,L,_,_,_).
-inLabel(N,L) :- ifStmt(_,L,N,_,_).
-
-inLabel(N,L) :- whileStmt(N,L,_,_).
-inLabel(N,L) :- whileStmt(_,L,N,_).
-
-inLabel(LHS,L) :- inLabel(E,L),assignExpr(E,_,LHS,_).
-inLabel(RHS,L) :- inLabel(E,L),assignExpr(E,_,_,RHS).
-
-inLabel(LHS,L) :- inLabel(E,L),binArithOpExpr(E,_,LHS,_).
-inLabel(RHS,L) :- inLabel(E,L),binArithOpExpr(E,_,_,RHS).
-
-inLabel(LHS,L) :- inLabel(E,L),binRelOpBexpr(E,_,LHS,_).
-inLabel(RHS,L) :- inLabel(E,L),binRelOpBexpr(E,_,_,RHS).
+// isLteOp("<=").
+// etc.
 
 
-.decl atomAt(node:nid,atom:atom)
-// .output atomAt
+// ---------------------------------------------------------
+// Decls
+// ---------------------------------------------------------
 
-atomAt(N,V) :- varExpr(N,V).
-atomAt(N,Z) :- numExpr(N,Z).
+.decl declSpecList(node:id,head:id,tail:id)
+.decl nilDeclSpecList(node:id)
+
+.decl simpleTypeSpec(node:id,typ:typ)
+
+.decl isIntTypeSpec(typ:typ)
+isIntTypeSpec("int").
+
+.decl declList(node:id,head:id,tail:id)
+.decl nilDeclList(node:id)
+.decl varDecl(node:id,var:ident,init:id)
+.decl nilInit(node:id)
+.decl assignInit(node:id)
 
 
+// ---------------------------------------------------------
+// Statements
+// ---------------------------------------------------------
+
+.decl declStmt(node:id,cp:cp,specList:id,declList:id)
+.decl valueStmt(node:id,cp:cp,expr:id)
+.decl ifThenStmt(node:id,cp:cp,guard:id,branch:id)
+.decl ifThenElseStmt(node:id,cp:cp,guard:id,branch1:id,branch2:id)
+.decl whileStmt(node:id,cp:cp,guard:id,body:id)
+.decl labeledStmt(node:id,label:ident,stmt:id)
+.decl breakStmt(node:id,cp:cp)
+.decl continueStmt(node:id,cp:cp)
+.decl gotoStmt(node:id,cp:cp,trgt:ident)
+.decl block(node:id,child:id)
+
+
+// ---------------------------------------------------------
+// Statement lists
+// ---------------------------------------------------------
+
+.decl stmtList(node:id,head:id,tail:id)
+.decl nilStmtList(node:id)
+
+
+// ---------------------------------------------------------
+// Program entry
+// ---------------------------------------------------------
+
+.decl progEntry(node:id)

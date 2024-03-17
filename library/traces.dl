@@ -1,447 +1,363 @@
 
 // =========================================================
-// Some constants
-// =========================================================
-
-.decl initNullLabelTag(tag:lab)
-initNullLabelTag("-").
-
-.decl initActionTag(tag:action)
-initActionTag("init").
-
-.decl doneNullLabelTag(tag:lab)
-doneNullLabelTag("done").
-
-.decl assignmentActionTag(tag:action)
-assignmentActionTag("assgn").
-
-.decl skipActionTag(tag:action)
-skipActionTag("skip").
-
-.decl trueBranchActionTag(tag:action)
-trueBranchActionTag("go-T").
-
-.decl falseBranchActionTag(tag:action)
-falseBranchActionTag("go-F").
-
-
-// =========================================================
 // Traces
 // =========================================================
 
-/* Technically, a trace is a sequence of labels, separated by actions,
- * altogether indicating which labels and actions the program goes through
- * at each step of execution.
- *
- * In turn, a sequence is just a map from an indexing set to a codomain.
- * Here, a trace `T` of length `n` is a map from `N_n = {1,..,n}` to
- * `Label x Action`. Thus, if `T(0) = (L1,A1)` and `T(1) = (L2,A2)`,
- * that means that at the first step or stage of execution, the program
- * executes the statement at L1, which results in action A1. After that,
- * at the second step or stage of execution, the program executes the
- * statement at L2, which results in action A2.
- *
- * As a matter of informal notation, let us use the following conventions:
- *
- *   - `T1` or even just `T` represents a trace.
- *   - Given `T(n)`, the index `n` is the stage of the trace.
- *   -`T.L1` represents a trace `T` that ends `at(L1)`.
- *   - `T.L1 ~[A]~> L2` extends `T.L1` to `L2` via action `A`.
- *
- * An example of a trace would be this:
- *
- *    L1 ~[skip]~> L2 ~[assign x = 1]~> done
- *
- * That is graphical representation of this:
- *
- *    T(1) = (L1,skip),T(2) = (L2,assign x = 1)
- *
- * In the picture we use `done` to indicate that the trace has ended,
- * i.e., that the program has terminated normally (without error).
- *
- * To represent such traces in datalog, we do the following:
- *
- *   - We treat each trace as a unique number (called a trace ID, of
- *     type `tid`). We can just think of a trace ID like `1` or `2`
- *     as the name of the trace, akin to saying "trace 1" or "trace 2".
- *   - We treat the index or stage of the trace as a number (of type
- *    `stg`), called the stage of the trace. So if `1` is a trace id
- *     and `2` is a stage, that represents "trace 1" at index "2" in the
- *     sequence.
- *   - We treat a trace as a sequence of "trace steps", which we can
- *     write informally as `T(2).L1 ~[A]~> L2`. But, in datalog, we
- *     would write down the trace ID, the stage number, L1, A, and L2.
- *   - If `T(1) = (L1,A1)` --- that is to say, if a trace `T` starts at
- *     label `L1` which results in action `A1` --- then we add a trace
- *     step `T(0) = (null,init)` to indicate the beginning of the trace.
- *   - If a trace ends with `Ln ~[An]~> done`, then we add a trace
- *     step `T(n) = (done,null)` to indicate the end of the trace.
- *   - Hence, the above example of a trace looks like this:
- *
- *         traceStep(1,0,"-","init","L1").
- *         traceStep(1,1,"L1","skip","L2").
- *         traceStep(1,2,"L2","assign","done").
- *
- *   - Details about assignment actions are recorded in an auxiliary
- *     table `assignAction`. For each such assignment action, we
- *     record the trace ID, the stage in the trace where it occurs,
- *     the variable that gets the assignment, and the value it receives.
- *   - Details about branch actions are recorded in auxiliary tables
- *     `trueBranchAction` and `falseBranchAction`. For each true/false
- *     branch action, we record the trace ID, the stage in the trace
- *     where the branch occurs, and the node ID of the guard expression
- *     that evaluates to true/false.
- */
-
-/* When an assignment action occurs, we record the variable and value
- * that gets assigned at that particular stage in the trace.
- */
-.decl assignAction(trace:tid,stage:stg,var:var,val:val)
-// .output assignAction
-
-/* When an assignment action occurs, we also record which variables
- * DO NOT get an assignment at that particular stage in the trace.
- */
-.decl noAssignAction(trace:tid,stage:stg,var:var)
-// .output noAssignAction
-
-/* A false-branch action occurs when a guard expression (the test or
- * condition in an if-statement or a while-loop) evaluates to false
- * and the program travels down the false branch. When a false-branch
- * action occurs, we record the node ID of the guard expression that
- * triggers the action at that stage in the trace.
- */
-.decl falseBranchAction(trace:tid,stage:stg,node:nid)
-// .output falseBranchAction
-
-/* A true-branch action occurs when a guard expression evaluates to
- * true and the program travels don the true branch. When a true-branch
- * action occurs, we record the node ID of the guard expression that
- * triggers it at that stage in the trace.
- */
-.decl trueBranchAction(trace:tid,stage:stg,node:nid)
-// .output trueBranchAction
-
-/* A step in a trace informally looks like this:
- *
- *     T(n).L1 ~[A]~> L2
- *
- * We record that by writing down the trace ID of `T`, the stage
- * or index `n`, the label `L1` that the trace is extended from,
- * the action `A` that occurs, and the label `L2` that the trace
- * is extended to.
- *
- * The action that we record is just a tag. The details of them
- * action is recorded in auxiliary tables as described above.
- */
-.decl traceStep(trace:tid,stage:stg,from:lab,action:action,to:lab)
-// .output traceStep
-
-/* The start of a trace at a label:
- * 
- *       T is a trace   T starts at L1 
- *     --------------------------------- Trace-init
- *            T(0).- ~[init]~> L1
- *
- * In other words, if `T` is a trace that starts at label `L1`
- * (i.e., if the user has created the trace with `createTrace(T,L1)`),
- * then the first trace step goes from the null label `-` to `L1`
- * via the action `init`.
- */
-
-traceStep(T,0,L1,A,L2) :-
-  createTrace(T,L2),
-  initNullLabelTag(L1),initActionTag(A).
-
-/* Extending a trace with a skip:
- *
- *         
- *      [Ln] skip    next(Ln) = Lm    T(n-1).Lk ~[A]~> Ln
- *     --------------------------------------------------- Trace-skip
- *                    T(n).Ln ~[skip]~> Lm
- *
- * In other words, if T is a trace that ends at `Ln` after a label
- * `Lk` which resulted in some action `A`, and if `Ln` is an empty
- * value statement (morally a "skip" statement), and the next label
- * that control will pass to after executing `Ln` is `Lm`, then
- * we can extend the trace `T` with a new step that goes from `Ln`
- * to `Lm` via the action `skip`.
- */
-
-traceStep(T,I+1,L1,"skip",L2) :-
-  traceStep(T,I,_,_,L1),
-  isSkip(L1),
-  next(L1,L2).
-
-/* Extending a trace with an assignment:
- *
- *        T(n-1).Lk ~[A]~> Ln        [Ln] x := e
- *      A[[ e ]](envAt(T(n))) = z   next(Ln) = Lm
- *     ------------------------------------------- Trace-assgn
- *             T(n).Ln ~[assign x=z]~> Lm
- *
- * In other words, if T is a trace that ends at `Ln` after a label
- * `Lk` and action `A`, and if `Ln` is an assignment `x := e`, and
- * if evaluating `e` --- i.e., `A[[ e ]]` --- in the environment at
- * the trace at stage `T(n)` --- i.e., `envAt(T(n))` --- yields a
- * value `z`, and if the next label that control will pass to after
- * executing `Ln` is `Lm`, then we can extend the trace `T` with a
- * new step that goes from `Ln` to `Lm` via the action `assign x=z`.
- *
- * Note that we record the details of the assignment action in the
- * auxiliary table `assignAction`. We also write down which variables
- * do NOT get an assignment at this point in the trace in the
- * auxiliary table `noAssignAction`. This is done in order to cope
- * with Souffle's stratified negation. It gives us an easy way to
- * check which variables are not given a new value at a particular
- * assignment action in a trace.
- */
-
-noAssignAction(T,I+1,V1),
-assignAction(T,I+1,V,Z),
-traceStep(T,I+1,L1,A,L2) :-
-  traceStep(T,I,_,_,L1),
-  isAssignment(L1),
-  next(L1,L2),
-  assignmentActionTag(A),
-  progVar(V1),
-  lhsVarOfAssignment(L1,V), V != V1,
-  rhsExprOfAssignment(L1,N),
-  evalAt(T,I,N,Z).
-
-/* Extending a trace with an if-statement that goes down the true branch::
- *
- *     T(n-1).Lk ~[A]~> Ln    B[[ b ]](envAt(T(n))) = true
- *      [Ln] if (b) then Lm else Lq     nextTrue(Ln) = Lm 
- *     ---------------------------------------------------- Trace-if-T
- *                    T(n).Ln ~[go-T]~> Lm
- *
- * Extending a trace with an if-statement going down the false branch::
- *
- *     T(n-1).Lk ~[A]~> Ln    B[[ b ]](envAt(T(n))) = false
- *      [Ln] if (b) then Lm else Lq     nextFalse(Ln) = Lm 
- *     ----------------------------------------------------- Trace-if-F
- *                     T(n).Ln ~[go-F]~> Lm
- *
- * Note that we record the details of the branch action (be it the
- * true- or false-branch action) in auxiliary tables `trueBranchAction`
- * and `falseBranchAction`.
- */
-
-trueBranchAction(T,I+1,N),
-traceStep(T,I+1,L1,A,L2) :-
-  traceStep(T,I,_,_,L1),
-  isIfStmt(L1),
-  guardExprOfIfStmt(L1,N),
-  boolEvalAt(T,I,N,B),
-  boolTrue(B),
-  nextTrue(L1,L2),
-  trueBranchActionTag(A).
-
-falseBranchAction(T,I+1,N),
-traceStep(T,I+1,L1,A,L2) :-
-  traceStep(T,I,_,_,L1),
-  isIfStmt(L1),
-  guardExprOfIfStmt(L1,N),
-  boolEvalAt(T,I,N,B),
-  boolFalse(B),
-  nextFalse(L1,L2),
-  falseBranchActionTag(A).
-
-/* Extending a trace with a while-loop that goes down the true branch:
- *
- *      T(n-1).Lk ~[A]~> Ln     [Ln] while (b) do Lm done
- *      B[[ b ]](envAt(T(n))) = true    nextTrue(Ln) = Lm
- *     --------------------------------------------------- Trace-while-T
- *                   T(n).Ln ~[go-T]~> Lm
- *
- * Extending a trace with a while-loop that goes down the false branch:
- *
- *     T(n-1).Lk ~[A]~> Ln       [Ln] while (b) do Lm done
- *     B[[ b ]](envAt(T(n))) = false    nextFalse(Ln) = Lm
- *     --------------------------------------------------- Trace-while-F
- *                    T(n).Ln ~[go-F]~> Lm
- *
- * Note that we record the details of the branch action in the
- * auxiliary tables `trueBranchAction` and `falseBranchAction`.
- */
-
-trueBranchAction(T,I+1,N),
-traceStep(T,I+1,L1,A,L2) :-
-    traceStep(T,I,_,_,L1),
-    isWhileStmt(L1),
-    guardExprOfWhileStmt(L1,N),
-    boolEvalAt(T,I,N,B),
-    boolTrue(B),
-    nextTrue(L1,L2),
-    trueBranchActionTag(A).
-
-falseBranchAction(T,I+1,N),
-traceStep(T,I+1,L1,A,L2) :-
-    traceStep(T,I,_,_,L1),
-    isWhileStmt(L1),
-    guardExprOfWhileStmt(L1,N),
-    boolEvalAt(T,I,N,B),
-    boolFalse(B),
-    nextFalse(L1,L2),
-    falseBranchActionTag(A).
+.type tid <: number // Trace IDs
+.type stg <: number // The stage or index in a trace.
+.type act <: symbol // Actions in a trace
 
 
-// =========================================================
-// Arithmetic expression semantics
-// =========================================================
+// ---------------------------------------------------------
+// Actions
+// ---------------------------------------------------------
 
-/* The semantics of an (arithmetic) expression is as expected.
- * Let us write the meaning or value of an expression `e` as `A[[ e ]]`.
- * Such expressions can only be evaluated in an environment, and we
- * will use the simulated environment that we get from `valueAt`.
- *
- * As a domain of values (type `val`) we just use the integers.
- *
- * When evaluated in an environment, a numeral is the integer
- * it is a numeral of. A variable is the value most recently assigned
- * to it (we look it up via `valueAt`, which recursively goes backwards
- * through the trace to find the last value assigned to the variable in
- * question). For binary operations, the meaning is computed by
- * evaluating the operands first, then combining them with the
- * appropriate arithmetic operation.
- *
- *     A[[ n ]](envAt(T(n))) = n, where n is a number
- *
- *     A[[ x ]](envAt(T(n))) = envAt(T(n))(x), where x is a variable
- *
- *     A[[ e1 + e2 ]](envAt(T(n))) =
- *         A[[ e1 ]](envAt(T(n))) + A[[ e2 ]](envAt(T(n)))
- *
- */
+.decl nopActionTag(tag:act)
+nopActionTag("nop").
 
-.decl evalAt(trace:tid,stage:stg,node:nid,val:val)
-// .output evalAt
+.decl declActionTag(tag:act)
+declActionTag("decl").
 
-evalAt(T,I,N,to_number(Z)) :- numExpr(N,Z),valueAt(T,I,_,_).
+.decl assignActionTag(tag:act)
+assignActionTag("assgn").
 
-evalAt(T,I,N,Z) :- varExpr(N,V),valueAt(T,I,V,Z).
+.decl trueBranchActionTag(tag:act)
+trueBranchActionTag("go-T").
 
-evalAt(T,I,N,Z1 + Z2) :-
-  binArithOpExpr(N,OP,N1,N2),binArithPlusOp(OP),
-  evalAt(T,I,N1,Z1),evalAt(T,I,N2,Z2).
+.decl falseBranchActionTag(tag:act)
+falseBranchActionTag("go-F").
+
+.decl breakActionTag(tag:act)
+breakActionTag("break").
+
+.decl continueActionTag(tag:act)
+continueActionTag("continue").
+
+.decl gotoActionTag(tag:act)
+gotoActionTag("goto").
+
+.decl initActionTag(tag:act)
+initActionTag("init").
+
+.decl initCP(cp:cp)
+initCP("-").
 
 
-// =========================================================
-// Boolean expression semantics
-// =========================================================
+.decl declAction(trace:tid,stage:stg,var:ident,addr:addr,val:val)
 
-/* The semantics for boolean expressions are similar to that of
- * arithmetic expressions. One point to note is that we allow
- * arithmetic expressions to appear as boolean expressions, but
- * when they do they are evaluated as C++ casts them: 0 is false,
- * and every other number is true.
- *
- *     B[[ true ]](envAt(T(n))) = true
- *
- *     B[[ false ]](envAt(T(n))) = false
- *
- *     B[[ e1 < e2 ]](envAt(T(n))) =
- *         A[[ e1 ]](envAt(T(n))) < A[[ e2 ]](envAt(T(n)))
- *
- *     B[[ e1 == e2 ]](envAt(T(n))) =
- *         A[[ e1 ]](envAt(T(n))) == A[[ e2 ]](envAt(T(n)))
- *
- *     B[[ n ]](envAt(T(n))) =
- *         false if A[[ n ]](envAt(T(n))) = 0 else true
- *
- */
+.decl assignAction(trace:tid,stage:stg,var:ident,addr:addr,val:val)
+.decl noAssignAction(trace:tid,stage:stg,var:ident)
 
-.decl boolEvalAt(trace:tid,stage:stg,node:nid,val:bool)
-// .output boolEvalAt
-
-boolEvalAt(T,I,N,B) :- boolBexpr(N,B),valueAt(T,I,_,_).
-
-boolEvalAt(T,I,N,"true") :-
-  binRelOpBexpr(N,OP,N1,N2),binRelLessThanOp(OP),
-  evalAt(T,I,N1,Z1),evalAt(T,I,N2,Z2),
-  Z1 < Z2.
-boolEvalAt(T,I,N,"false") :-
-  binRelOpBexpr(N,OP,N1,N2),binRelLessThanOp(OP),
-  evalAt(T,I,N1,Z1),evalAt(T,I,N2,Z2),
-  Z1 >= Z2.
-
-boolEvalAt(T,I,N,"true") :-
-  binRelOpBexpr(N,OP,N1,N2),binRelEqualsOp(OP),
-  evalAt(T,I,N1,Z1),evalAt(T,I,N2,Z2),
-  Z1 = Z2.
-boolEvalAt(T,I,N,"false") :-
-  binRelOpBexpr(N,OP,N1,N2),binRelEqualsOp(OP),
-  evalAt(T,I,N1,Z1),evalAt(T,I,N2,Z2),
-  Z1 != Z2.
-
-boolEvalAt(T,I,N,"false") :-
-  boolArithExpr(N),valueAt(T,I,_,_),
-  evalAt(T,I,N,Z),
-  Z = 0.
-boolEvalAt(T,I,N,"true") :-
-  boolArithExpr(N),valueAt(T,I,_,_),
-  evalAt(T,I,N,Z),
-  Z != 0.
+.decl trueBranchAction(trace:tid,stage:stg,node:id)
+.decl falseBranchAction(trace:tid,stage:stg,node:id)
 
 
-// =========================================================
-// Environments (simulated)
-// =========================================================
+// ---------------------------------------------------------
+// Syntax helpers
+// ---------------------------------------------------------
+
+.decl progVar(var:ident)
+progVar(V) :- lvalExpr(_,V).
+
+.decl isSkip(node:id)
+isSkip(N) :- valueStmt(N,_,E),emptyExpr(E).
+
+.decl isDecl(node:id)
+isDecl(N) :- declStmt(N,_,_,_).
+
+.decl isAssignment(node:id)
+isAssignment(N) :- valueStmt(N,_,E),assignOpExpr(E,_,_,_).
+
+.decl lhsLvalOf(node:id,var:ident)
+lhsLvalOf(N,V) :-
+  valueStmt(N,_,E),assignOpExpr(E,_,LHS,_),lvalExpr(LHS,V).
+
+.decl rhsExprOf(node:id,expr:id)
+rhsExprOf(N,RHS) :- valueStmt(N,_,E),assignOpExpr(E,_,_,RHS).
+
+.decl declTree(node:id,child:id,leaf:symbol)
+declTree(N1,N3,"false"),
+declTree(N1,N4,"false") :- declStmt(N1,_,_,N2),declList(N2,N3,N4).
+
+declTree(N1,N3,"false"),
+declTree(N1,N4,"false") :- declTree(N1,N2,"false"),declList(N2,N3,N4).
+
+declTree(N1,N2,"true") :- declTree(N1,N2,"false"),varDecl(N2,_,_).
+
+.decl varDeclOf(node:id,var:ident,init:id)
+varDeclOf(N,V,N3) :- declTree(N,N2,"true"),varDecl(N2,V,N3).
+
+.decl isInit(node:id)
+isInit(N) :- varDeclOf(_,_,N).
+
+.decl declSpecTree(node:id,child:id,leaf:symbol)
+declSpecTree(N1,N3,"false"),
+declSpecTree(N1,N4,"false") :-
+  declStmt(N1,_,N2,_),declSpecList(N2,N3,N4).
+
+declSpecTree(N1,N3,"false"),
+declSpecTree(N1,N4,"false") :-
+  declSpecTree(N1,N2,"false"),declSpecList(N2,N3,N4).
+
+declSpecTree(N1,N2,"true") :-
+  declSpecTree(N1,N2,"false"),simpleTypeSpec(N2,_).
+
+.decl simpleTypeDecl(node:id,typ:typ)
+simpleTypeDecl(N,T) :- declSpecTree(N,N2,"true"),simpleTypeSpec(N2,T).
+
+.decl signedInt(typ:typ)
+signedInt("int").
+
+.decl unsignedInt(typ:typ)
+unsignedInt("unsigned int").
+
+.decl simpleTypeDeclOf(node:id,typ:typ)
+simpleTypeDeclOf(N,T) :-
+  simpleTypeDecl(N,"int"),!simpleTypeDecl(N,"unsigned"),signedInt(T).
+simpleTypeDeclOf(N,T) :-
+  simpleTypeDecl(N,"unsigned"),simpleTypeDecl(N,"int"),unsignedInt(T).
 
 
-/* Instead of recording the environment at each step of the way in a
- * trace, we can ask for the value of a variable at stage `n` of any
- * trace in a recursive way. Basically, we look to see if the last
- * step `n-1` in the trace assigned a value `z` to a variable `x`. If
- * so, then we know that `x` has value `z` at the end of the trace. If
- * the last step `n-1` in the trace did not assign a value to `x`, then
- * we go backwards one step `n-2` and repeat. If we get back to the very
- * beginning of the trace and the variable has not been assigned a
- * value, then we just look up the value in the initial environment
- * of the trace (which is provided by the user when the create a trace).
- * By doing this, we in effect simulate the environment at stage `n` of
- * the trace.
- *
- * As a matter of notation, let us write `valueAt(T(n))` to indicate
- * the simulated environment at stage `n` in the trace `T`. To lookup
- * a variable `x`, let us write `valueAt(T(n))(x)`. We can then define
- * `valueAt(T(n)) : Var -> Z` recursively by cases, like this:
- *
- *     valueAt(T(0))(x)  =  initialEnv(x), as a base case
- *
- *     valueAt(T(n))(x)  =  z, if T(n-1).Lk ~[assign x=z]~> Ln
- *                          valueAt(T(n-1))(x), otherwise
- */
+// ---------------------------------------------------------
+// Concrete traces (program executions)
+// ---------------------------------------------------------
 
-/* The `initEnv` is the initial environment for a trace.
- * To populate this, we fill it with any variables the user
- * sets with `setTraceEnv(T,V,Z)`, and we set every other
- * program variable the user did not provide a value for to zero.
- */
-.decl initEnv(tid:tid,var:var,val:val)
-// .output initEnv
+.decl trace(trace:tid,stage:stg,from:cp,action:act,to:cp)
 
-initEnv(T,V,Z) :- createTrace(T,_),setTraceEnv(T,V,Z).
-initEnv(T,V,0) :- createTrace(T,_),progVar(V),!setTraceEnv(_,V,_).
+// First/init step in a trace.
+trace(T,0,C1,A,C2) :-
+  createTrace(T,C2),initActionTag(A),initCP(C1).
 
-/* The `valueAt(T,I,V,Z)` predicate says that in trace `T` at stage
- * `I`, the variable `V` has value `Z`.
- */
-.decl valueAt(tid:tid,stg:stg,var:var,val:val)
-// .output valueAt
+// Decl statements
+declAction(T,I+1,V,L,Z),
+trace(T,I+1,C1,A,C2) :-
+  trace(T,I,_,_,C1),
+  at(N,C1),isDecl(N),
+  declActionTag(A),
+  after(N,C2),
+  varDeclOf(N,V,N2),
+  initVarAddr(T,N2,V,L),
+  evalInit(T,I,N2,Z).
 
-valueAt(T,0,V,Z) :- initEnv(T,V,Z).
+// Skips/empty statements
+trace(T,I+1,C1,A,C2) :-
+  trace(T,I,_,_,C1),
+  at(N,C1),isSkip(N),
+  nopActionTag(A),
+  after(N,C2).
 
-valueAt(T,I,V,Z) :-
-  traceStep(T,I,_,A,_),assignmentActionTag(A),
-  assignAction(T,I,V,Z).
+// Assignments
+assignAction(T,I+1,V,L,Z),
+trace(T,I+1,C1,A,C2) :-
+  trace(T,I,_,_,C1),
+  at(N,C1),isAssignment(N),
+  assignActionTag(A),
+  after(N,C2),
+  lhsLvalOf(N,V),
+  rhsExprOf(N,RHS),
+  env(T,I,V,L),
+  eval(T,I,RHS,Z,_).
 
-valueAt(T,I,V,Z) :-
-  traceStep(T,I,_,A,_),assignmentActionTag(A),
-  noAssignAction(T,I,V),
-  valueAt(T,I-1,V,Z).
+// Note which variables don't get an assignment
+noAssignAction(T,I,V) :-
+  assignAction(T,I,V1,_,_),
+  progVar(V),V != V1.
 
-valueAt(T,I,V,Z) :-
-  traceStep(T,I,_,A,_),!assignmentActionTag(A),
-  valueAt(T,I-1,V,Z).
+
+// ---------------------------------------------------------
+// Machine state/configuration
+// ---------------------------------------------------------
+
+.decl env(trace:tid,stage:stg,var:ident,addr:addr)
+.decl store(trace:tid,stage:stg,addr:addr,val:val)
+
+env(T,I,V,A) :- declAction(T,I,V,A,_).
+env(T,I,V,A) :- assignAction(T,I,V,A,_).
+env(T,I,V,A) :- noAssignAction(T,I,V),env(T,I-1,V,A).
+env(T,I,V,A) :-
+  trace(T,I,_,Act,_),!assignActionTag(Act),
+  env(T,I-1,V,A).
+
+store(T,I,A,Z) :- declAction(T,I,_,A,Z).
+store(T,I,A,Z) :- assignAction(T,I,_,A,Z).
+store(T,I,A,Z) :-
+  assignAction(T,I,_,A1,_),A != A1,
+  store(T,I-1,A,Z).
+store(T,I,A,Z) :-
+  trace(T,I,_,Act,_),!assignActionTag(Act),
+  store(T,I-1,A,Z).
+
+.decl lookupVar(trace:tid,stage:stg,var:ident,val:val)
+lookupVar(T,I,V,Z) :- env(T,I,V,A),store(T,I,A,Z).
+
+
+// ---------------------------------------------------------
+// Initialization (of variables, etc)
+// ---------------------------------------------------------
+
+.decl initVarAddr(trace:tid,node:id,var:ident,addr:addr)
+
+initVarAddr(T,N,V,autoinc()*B) :-
+  createTrace(T,_),varDeclOf(N1,V,N),
+  simpleTypeDeclOf(N1,K),unsignedInt(K),
+  sizeOfUnsignedInt(B).
+
+initVarAddr(T,N,V,autoinc()*B) :-
+  createTrace(T,_),varDeclOf(N1,V,N),
+  simpleTypeDeclOf(N1,K),signedInt(K),
+  sizeOfInt(B).
+
+
+// ---------------------------------------------------------
+// Eval (expressions)
+// ---------------------------------------------------------
+
+.decl eval(trace:tid,stage:stg,node:id,val:val,typ:typ)  
+
+// input() - unsigned int
+eval(T,I,N,Z,K) :-
+  trace(T,I,_,_,_),inputExpr(N),userInput(T,N,Z),
+  unsignedInt(K).
+
+// input() - signed int
+eval(T,I,N,Z,K) :-
+  trace(T,I,_,_,_),inputExpr(N),userInput(T,N,Z),
+  signedInt(K).
+
+// int lit - unsigned int
+eval(T,I,N,W,K) :-
+  trace(T,I,_,_,_),intLitExpr(N,Z), W = to_number(Z),
+  unsignedInt(K).
+
+// int lit - signed int
+eval(T,I,N,W,K) :-
+  trace(T,I,_,_,_),intLitExpr(N,Z), W = to_number(Z),
+  signedInt(K).
+
+// lookup var - unsigned int
+eval(T,I,N,Z,K) :-
+  trace(T,I,_,_,_),lvalExpr(N,V),lookupVar(T,I,V,Z),
+  varDeclOf(N1,V,_),simpleTypeDeclOf(N1,K),unsignedInt(K).
+
+// lookup var - signed int
+eval(T,I,N,Z,K) :-
+  trace(T,I,_,_,_),lvalExpr(N,V),lookupVar(T,I,V,Z),
+  varDeclOf(N1,V,_),simpleTypeDeclOf(N1,K),signedInt(K).
+
+// read a variable (lval-to-rval)
+eval(T,I,N,Z,K) :-
+  trace(T,I,_,_,_),lvalToRvalExpr(N,N1),eval(T,I,N1,Z,K).
+
+// signed-to-unsigned int conversion
+eval(T,I,N,Z,K) :-
+  trace(T,I,_,_,_),signedToUnsignedIntExpr(N,N1),unsignedInt(K),
+  maxUnsignedInt(L),
+  eval(T,I,N1,Z1,K1),signedInt(K1),
+  Z1 < 0, Z = Z1 + L.
+
+// signed-to-unsigned int conversion
+eval(T,I,N,Z,K) :-
+  trace(T,I,_,_,_),signedToUnsignedIntExpr(N,N1),unsignedInt(K),
+  eval(T,I,N1,Z,K1),signedInt(K1),
+  Z >= 0.
+
+// unsigned-to-signed int conversion
+eval(T,I,N,Z,K) :-
+  trace(T,I,_,_,_),unsignedToSignedIntExpr(N,N1),signedInt(K),
+  eval(T,I,N1,Z1,K1),unsignedInt(K1),
+  maxUnsignedInt(M),maxInt(L),
+  Z1 > L,Z = Z1 - M.
+
+// unsigned-to-signed int conversion
+eval(T,I,N,Z,K) :-
+  trace(T,I,_,_,_),unsignedToSignedIntExpr(N,N1),signedInt(K),
+  eval(T,I,N1,Z,K1),unsignedInt(K1),
+  maxInt(L),
+  Z <= L.
+
+// negation unary op - signed int
+eval(T,I,N,-Z,K) :-
+  trace(T,I,_,_,_),
+  unOpExpr(N,Op,E),isNegOp(Op),
+  eval(T,I,E,Z,K),signedInt(K).
+
+// + unsigned ints, no overflow
+eval(T,I,N,Z,K) :-
+  trace(T,I,_,_,_),
+  binOpExpr(N,Op,LHS,RHS),isAddOp(Op),
+  eval(T,I,LHS,Z1,K),eval(T,I,RHS,Z2,K),
+  Z = Z1 + Z2,
+  unsignedInt(K),
+  maxUnsignedInt(M),
+  Z <= M.
+
+// + unsigned ints, overflow
+arithOverflow(T,I,N),
+eval(T,I,N,Z,K) :-
+  trace(T,I,_,_,_),
+  binOpExpr(N,Op,LHS,RHS),isAddOp(Op),
+  eval(T,I,LHS,Z1,K),eval(T,I,RHS,Z2,K),
+  Z3 = Z1 + Z2,
+  unsignedInt(K),
+  maxUnsignedInt(M),
+  Z3 >= M,
+  byteSize(W),sizeOfUnsignedInt(S),
+  Z = Z3 % (S*W).
+
+// + signed ints, no overflow
+eval(T,I,N,Z,K) :-
+  trace(T,I,_,_,_),
+  binOpExpr(N,Op,LHS,RHS),isAddOp(Op),
+  eval(T,I,LHS,Z1,K),eval(T,I,RHS,Z2,K),
+  Z = Z1 + Z2,
+  signedInt(K),
+  minInt(J),
+  maxInt(M),
+  J <= Z, Z <= M.
+
+// + signed ints, oveflow below
+arithOverflow(T,I,N),
+eval(T,I,N,Z,K) :-
+  trace(T,I,_,_,_),
+  binOpExpr(N,Op,LHS,RHS),isAddOp(Op),
+  eval(T,I,LHS,Z1,K),eval(T,I,RHS,Z2,K),
+  Z3 = Z1 + Z2,
+  signedInt(K),
+  minInt(J),
+  maxInt(L),
+  Z3 <= J,
+  byteSize(W),sizeOfInt(S),
+  M = 2^((W*S)-1),
+  R = J - Z3,
+  Z4 = R % M,
+  Z = L - Z4.
+
+// + signed ints, overflow above
+arithOverflow(T,I,N),
+eval(T,I,N,Z,K) :-
+  trace(T,I,_,_,_),
+  binOpExpr(N,Op,LHS,RHS),isAddOp(Op),
+  eval(T,I,LHS,Z1,K),eval(T,I,RHS,Z2,K),
+  Z3 = Z1 + Z2,
+  signedInt(K),
+  minInt(J),
+  maxInt(L),
+  Z3 > L,
+  byteSize(W),sizeOfInt(S),
+  M = 2^((W*S)-1),
+  R = Z3 - L,
+  Z4 = R % M,
+  Z = J + Z4.
+
+
+.decl evalInit(trace:tid,stage:stg,node:id,val:val)
+evalInit(T,I,N,0) :- trace(T,I,_,_,_),nilInit(N).
+evalInit(T,I,N,Z) :- isInit(N),eval(T,I,N,Z,_).
+
+
+// ---------------------------------------------------------
+// User interface
+// ---------------------------------------------------------
+
+.decl createTrace(trace:tid,start:cp)
+.decl userInput(trace:tid,node:id,val:val)

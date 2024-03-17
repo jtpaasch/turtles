@@ -1,0 +1,105 @@
+#include "library/library.dl"
+
+// =========================================================
+// Example 05
+// =========================================================
+
+/*
+------------------------------------------------------------
+PROGRAM TEXT
+------------------------------------------------------------
+
+L01 {
+L02     int x;
+L03     while (true) {
+L04         x = x + 1;
+L05         if (2 < x) {
+L06             continue;
+L07         }
+L08     }
+L09 }
+
+
+------------------------------------------------------------
+THE AST
+------------------------------------------------------------
+
+The AST looks like this ("SL" is short for "stmtList", "S" is
+short for "statement", and dashes are short for nil stmt lists):
+
+       2 block
++---------+---------+
+|                   |
+|                 3 SL
+|         +---------+---------+
+|         |                   |
+|         |                  9 S
+|         |          +--------+---------+
+|         |          |                  |
+|         |          |               10 block
+|         |          |            +-----+-----+
+|         |          |            |           |
+|       4 SL         |            |         11 SL
+|    +----+---+      |            |    +------+------+
+|    |        |      |            |    |             |
+|  5 SL      8 S     |            |  12 SL         15 S
+|  +-+-+      |      |            |  +-+-+      +----+-----+
+|  |   |      |      |            |  |   |      |          |
+|6 SL 7 S     |      |            |13 SL 14 S   |        16 S
+|  |   |      |      |            |  |   |      |          |
+{  -   int x; x=x+1; while (true) {  -   x=x+1; if (2<x) { continue; } } }
+       L02    L03    L04                 L05    L06        L07
+
+*/
+
+progEntry(2).
+
+block(2,3).
+stmtList(3,4,9).
+stmtList(4,5,8).
+stmtList(5,6,7).
+nilStmtList(6).
+
+declStmt(7,"L02",701,702).
+declSpecList(701,70101,70102).
+nilDeclSpecList(70101).
+simpleTypeSpec(70102,"int").
+declList(702,70201,70202).
+nilDeclList(70201).
+varDecl(70202,"x",7020200).
+nilInit(7020200).
+
+valueStmt(8,"L03",800).
+assignOpExpr(800,"=",801,802).
+lvalExpr(801,"x").
+binOpExpr(802,"+",80201,80202).
+lvalToRvalExpr(80201,8020100).
+lvalExpr(8020100,"x").
+intLitExpr(80202,"1").
+
+whileStmt(9,"L04",900,10).
+boolLitExpr(900,"true").
+
+block(10,11).
+stmtList(11,12,15).
+stmtList(12,13,14).
+nilStmtList(13).
+
+valueStmt(14,"L05",1400).
+assignOpExpr(1400,"=",1401,1402).
+lvalExpr(1401,"x").
+binOpExpr(1402,"+",140201,140202).
+lvalToRvalExpr(140201,14020100).
+lvalExpr(14020100,"x").
+intLitExpr(140202,"1").
+
+ifThenStmt(15,"L06",1500,16).
+relOpExpr(1500,"<",1501,1502).
+intLitExpr(1501,"2").
+lvalToRvalExpr(1502,150200).
+lvalExpr(150200,"x").
+
+continueStmt(16,"L07").
+
+valueStmt(17,"L10",1700).
+emptyExpr(1700).
